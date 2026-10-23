@@ -12,8 +12,9 @@ A design proxy — GIS canopy percentage, a roof SRI specification, a 400 m gree
 |---|---|---|
 | [`demos/teduh-workflow-film.html`](demos/teduh-workflow-film.html) | The 58-second auto-playing film: design intent → baseline → expectation vs. reality → gap prioritisation → intervention → re-measurement → Comfort & Shade Ledger. Camera choreography, simulated sun arc, spatially anchored callouts. | Internet (Three.js r128, cdnjs) |
 | [`demos/teduh-verification-simulator.html`](demos/teduh-verification-simulator.html) | The audit instrument: 6-segment precinct ledger, live WBGT field simulator (ISO 7243 with the Stull 2011 wet-bulb approximation), diurnal thermal-exile clock, seeded 10,000-draw Monte Carlo household energy range, and per-stakeholder output views. | Nothing — no CDN |
+| [`demos/teduh-3d-digital-twin.html`](demos/teduh-3d-digital-twin.html) | The 3D digital twin: orbitable township geometry, diurnal sun scrubber (07:00–19:00), Layer 1 proxy vs. Layer 2 ground-truth colouring, Weeks 1–2 → Weeks 9–12 retrofit stage, per-segment WBGT inspector, and a 2.5-minute guided tour. | Internet (Three.js r128 + OrbitControls, cdnjs) |
 
-Open either file directly in a browser. No build step, no server, no dependencies beyond the CDN noted above.
+Open any of these files directly in a browser. No build step, no server, no dependencies beyond the CDNs noted above.
 
 ## Specifications
 

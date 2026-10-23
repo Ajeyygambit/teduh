@@ -1,0 +1,1677 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TEDUH 3D — Township Heat Verification Digital Twin</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Three.js & OrbitControls -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #060911;
+      color: #f1f5f9;
+      margin: 0;
+      overflow: hidden;
+      user-select: none;
+    }
+    .mono { font-family: 'JetBrains Mono', monospace; }
+    .glass {
+      background: rgba(12, 18, 30, 0.84);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid rgba(148, 163, 184, 0.16);
+    }
+    /* Provenance Badges (§8 & §9) */
+    .prov-measured { background: rgba(16, 185, 129, 0.16); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.4); }
+    .prov-proxy    { background: rgba(59, 130, 246, 0.16); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.4); }
+    .prov-modelled { background: rgba(168, 85, 247, 0.16); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.4); }
+    .prov-assumed  { background: rgba(245, 158, 11, 0.16); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4); }
+    .prov-verified { background: rgba(20, 184, 166, 0.16); color: #2dd4bf; border: 1px solid rgba(20, 184, 166, 0.4); }
+
+    input[type="range"] { accent-color: #10b981; cursor: pointer; }
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.6); }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+
+    /* 3D Floating HTML Markers */
+    .marker-3d {
+      position: absolute;
+      transform: translate(-50%, -100%);
+      pointer-events: auto;
+      cursor: pointer;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+      z-index: 15;
+    }
+    .marker-3d:hover {
+      transform: translate(-50%, -106%) scale(1.06);
+      z-index: 30;
+    }
+    .marker-selected {
+      ring: 2px solid #ffffff;
+      box-shadow: 0 0 20px rgba(16, 185, 129, 0.6);
+      z-index: 25;
+    }
+  </style>
+</head>
+<body class="w-screen h-screen relative overflow-hidden">
+
+  <!-- 3D WEBGL CANVAS CONTAINER -->
+  <div id="canvas-container" class="absolute inset-0 w-full h-full z-0"></div>
+
+  <!-- FLOATING 3D HTML LABELS OVERLAY -->
+  <div id="markers-container" class="absolute inset-0 pointer-events-none z-10 overflow-hidden"></div>
+
+  <!-- TOP BAR: §9 INTEGRITY GUARDRAIL & HEADER -->
+  <header class="absolute top-0 left-0 right-0 z-30 pointer-events-none p-3 flex flex-col gap-2">
+    <!-- Guardrail Strip -->
+    <div class="glass rounded-lg px-3 py-1.5 pointer-events-auto flex flex-wrap items-center justify-between gap-2 text-[11px] border-emerald-500/30">
+      <div class="flex items-center gap-2">
+        <span class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-semibold mono">§9 INTEGRITY LOCK</span>
+        <span class="text-slate-300">
+          3D Prototype uses <strong>synthetic pilot data</strong> (not field measurements). GBI &amp; LCCF are <strong>voluntary</strong>; GP024 is a <strong>planning guideline</strong>; Residential = <strong>MS 2680</strong>; LCCF Paving = <strong>SRI &ge; 29</strong>; Smart City = <strong>MS ISO 37122:2021</strong>.
+        </span>
+      </div>
+      <div class="flex items-center gap-1.5 mono text-[10px]">
+        <span class="px-1.5 py-0.5 rounded prov-proxy">[PROXY]</span>
+        <span class="px-1.5 py-0.5 rounded prov-measured">[MEASURED]</span>
+        <span class="px-1.5 py-0.5 rounded prov-modelled">[MODELLED]</span>
+        <span class="px-1.5 py-0.5 rounded prov-assumed">[ASSUMED]</span>
+      </div>
+    </div>
+
+    <!-- Main Control Bar -->
+    <div class="glass rounded-xl px-4 py-2.5 pointer-events-auto flex flex-wrap items-center justify-between gap-3 shadow-2xl">
+      <!-- Brand -->
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-700 flex items-center justify-center font-bold text-slate-950 text-base mono shadow">
+          T3D
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="font-bold text-sm sm:text-base tracking-tight text-white">TEDUH 3D Digital Twin</h1>
+            <span class="text-[10px] mono uppercase px-2 py-0.5 rounded bg-slate-800 text-emerald-400 border border-slate-700">Precinct Ara · Landed Township</span>
+          </div>
+          <p class="text-[11px] text-slate-400 italic">"Every township promises shade. None of them can prove it."</p>
+        </div>
+      </div>
+
+      <!-- Solar Time-of-Day Scrubber (7:00 AM - 7:00 PM) -->
+      <div class="flex items-center gap-3 bg-slate-900/90 border border-slate-800 rounded-lg px-3 py-1.5">
+        <button id="btn-play-sun" onclick="toggleSunPlay()" class="w-7 h-7 rounded bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 flex items-center justify-center text-xs font-bold" title="Animate Diurnal Sun Cycle">
+          &#9654;
+        </button>
+        <div class="flex flex-col w-44 sm:w-56">
+          <div class="flex justify-between text-[10px] mono">
+            <span class="text-slate-400">SOLAR TIME: <strong id="lbl-solar-time" class="text-amber-300">16:00 (4:00 PM)</strong></span>
+            <span id="lbl-sun-elev" class="text-slate-500">Az: 255&deg;</span>
+          </div>
+          <input id="slider-hour" type="range" min="7" max="19" step="0.25" value="16" oninput="onHourSliderChange(this.value)" class="w-full h-1.5 mt-1" />
+          <div class="flex justify-between text-[9px] mono text-slate-500 mt-0.5">
+            <span>08:00 Audit</span>
+            <span class="text-rose-400">13:00 Peak</span>
+            <span class="text-amber-300">16:00 School</span>
+            <span>17:00 Audit</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Layer & Stage Switchers -->
+      <div class="flex items-center gap-2 flex-wrap">
+        <!-- View Mode: Layer 1 vs Layer 2 -->
+        <div class="inline-flex rounded-lg bg-slate-900 p-1 border border-slate-800 text-[11px]">
+          <button id="btn-layer-1" onclick="setLayerView('proxy')" class="px-2.5 py-1 rounded-md font-medium text-slate-400 hover:text-white transition">
+            Layer 1: GIS Proxy
+          </button>
+          <button id="btn-layer-2" onclick="setLayerView('ground')" class="px-2.5 py-1 rounded-md font-semibold bg-emerald-500 text-slate-950 transition">
+            Layer 2: Ground Truth
+          </button>
+        </div>
+
+        <!-- Pilot Phase: Weeks 1-2 vs Weeks 9-12 -->
+        <div class="inline-flex rounded-lg bg-slate-900 p-1 border border-slate-800 text-[11px]">
+          <button id="btn-stage-baseline" onclick="setPilotStage('baseline')" class="px-2.5 py-1 rounded-md font-semibold bg-rose-500 text-white transition">
+            Wks 1–2: Baseline
+          </button>
+          <button id="btn-stage-retrofit" onclick="setPilotStage('retrofit')" class="px-2.5 py-1 rounded-md font-medium text-slate-400 hover:text-white transition">
+            Wks 9–12: Verified Retrofit
+          </button>
+        </div>
+
+        <!-- 2.5-Min Guided Tour Button -->
+        <button id="btn-tour" onclick="toggleGuidedTour()" class="px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 text-xs font-semibold mono flex items-center gap-1.5 transition">
+          <span id="tour-dot" class="w-2 h-2 rounded-full bg-amber-400"></span>
+          <span id="lbl-tour-btn">2.5m Guided Tour</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- LEFT PANEL: PRECINCT KPI SUMMARY & SEGMENT AUDIT LEDGER -->
+  <aside class="absolute top-32 bottom-4 left-3 w-80 sm:w-96 z-20 pointer-events-none flex flex-col gap-2.5 overflow-hidden">
+    <!-- KPI Strip -->
+    <div class="glass rounded-xl p-3 pointer-events-auto grid grid-cols-2 gap-2 shadow-xl">
+      <div class="bg-slate-900/80 border border-slate-800/80 rounded-lg p-2.5">
+        <div class="flex items-center justify-between">
+          <span class="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">4PM Walkable Route</span>
+          <span class="text-[9px] mono px-1.5 py-0.5 rounded prov-measured">MEASURED</span>
+        </div>
+        <div class="flex items-baseline gap-1.5 mt-1">
+          <span id="kpi-walkable" class="text-xl font-bold mono text-rose-400">33.3%</span>
+          <span id="kpi-walkable-sub" class="text-[10px] text-slate-400 mono">(390m / 1170m)</span>
+        </div>
+      </div>
+
+      <div class="bg-slate-900/80 border border-slate-800/80 rounded-lg p-2.5">
+        <div class="flex items-center justify-between">
+          <span class="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">Audit Flags (|Gap|&gt;15)</span>
+          <span class="text-[9px] mono px-1.5 py-0.5 rounded prov-proxy">AUDIT</span>
+        </div>
+        <div class="flex items-baseline gap-1.5 mt-1">
+          <span id="kpi-flags" class="text-xl font-bold mono text-rose-400">5 / 6</span>
+          <span id="kpi-flags-sub" class="text-[10px] text-slate-400">4 Over · 1 Under</span>
+        </div>
+      </div>
+
+      <div class="bg-slate-900/80 border border-slate-800/80 rounded-lg p-2.5">
+        <div class="flex items-center justify-between">
+          <span class="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">Usable Outdoor Hrs</span>
+          <span class="text-[9px] mono px-1.5 py-0.5 rounded prov-measured">ISO 7243</span>
+        </div>
+        <div class="flex items-baseline gap-1.5 mt-1">
+          <span id="kpi-hours" class="text-xl font-bold mono text-amber-300">6.5 hrs</span>
+          <span id="kpi-exile" class="text-[10px] text-rose-400 mono">5.5h thermal exile</span>
+        </div>
+      </div>
+
+      <div class="bg-slate-900/80 border border-slate-800/80 rounded-lg p-2.5">
+        <div class="flex items-center justify-between">
+          <span class="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">Avoided Cooling/Yr</span>
+          <span class="text-[9px] mono px-1.5 py-0.5 rounded prov-modelled">p10–p90</span>
+        </div>
+        <div class="flex items-baseline gap-1.5 mt-1">
+          <span id="kpi-savings" class="text-base font-bold mono text-emerald-400">RM 86–192</span>
+          <span class="text-[9px] text-slate-400 mono">/hh</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3D Camera Presets & Legend -->
+    <div class="glass rounded-xl px-3 py-2 pointer-events-auto flex items-center justify-between gap-2 text-[11px]">
+      <span class="text-slate-400 font-medium">Camera:</span>
+      <div class="flex items-center gap-1">
+        <button onclick="flyCamera('overview')" class="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 mono text-[10px]">Aerial Overview</button>
+        <button onclick="flyCamera('street')" class="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 mono text-[10px]">Pedestrian Eye</button>
+        <button onclick="flyCamera('top')" class="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 mono text-[10px]">GIS Plan</button>
+      </div>
+    </div>
+
+    <!-- Comfort & Shade Ledger List -->
+    <div class="glass rounded-xl p-3 pointer-events-auto flex-1 flex flex-col overflow-hidden shadow-xl">
+      <div class="flex items-center justify-between pb-2 mb-2 border-b border-slate-800">
+        <div>
+          <h2 class="text-xs font-bold uppercase tracking-wider text-white">Comfort &amp; Shade Ledger</h2>
+          <p class="text-[10px] text-slate-400">Click any 3D corridor or card to inspect WBGT physics</p>
+        </div>
+        <span class="text-[10px] mono text-emerald-400">|Gap| &gt; 15 &rarr; FLAG</span>
+      </div>
+
+      <div id="segment-cards-list" class="flex-1 overflow-y-auto space-y-2 pr-1">
+        <!-- Populated by JS -->
+      </div>
+    </div>
+  </aside>
+
+  <!-- RIGHT PANEL: WBGT FIELD PHYSICS, MONTE CARLO & STAKEHOLDER TABS -->
+  <aside class="absolute top-32 bottom-4 right-3 w-80 sm:w-96 z-20 pointer-events-none flex flex-col gap-2.5 overflow-hidden">
+    <!-- Panel Mode Tabs -->
+    <div class="glass rounded-xl p-1.5 pointer-events-auto grid grid-cols-3 gap-1 text-[11px] font-semibold">
+      <button id="tab-btn-physics" onclick="switchRightTab('physics')" class="py-1.5 rounded-lg bg-emerald-500 text-slate-950 transition">
+        1. WBGT Physics
+      </button>
+      <button id="tab-btn-montecarlo" onclick="switchRightTab('montecarlo')" class="py-1.5 rounded-lg text-slate-300 hover:bg-slate-800/70 transition">
+        2. Monte Carlo RM
+      </button>
+      <button id="tab-btn-framework" onclick="switchRightTab('framework')" class="py-1.5 rounded-lg text-slate-300 hover:bg-slate-800/70 transition">
+        3. §3.5 &amp; §15 Audit
+      </button>
+    </div>
+
+    <!-- TAB 1: SELECTED SEGMENT & LIVE WBGT FIELD SIMULATOR -->
+    <div id="panel-physics" class="glass rounded-xl p-3.5 pointer-events-auto flex-1 overflow-y-auto space-y-3 shadow-xl">
+      <div class="flex items-start justify-between gap-2 border-b border-slate-800 pb-2.5">
+        <div>
+          <div class="flex items-center gap-1.5">
+            <span id="sel-id" class="text-xs font-bold mono px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">SEG-01</span>
+            <span id="sel-verdict-badge" class="text-[10px] font-bold mono px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/40">PROXY_UNRELIABLE</span>
+          </div>
+          <h3 id="sel-name" class="text-sm font-bold text-white mt-1">Persiaran Ara School Walk</h3>
+          <p id="sel-route-meta" class="text-[11px] text-slate-400">Primary School Gate &rarr; Terrace Phase 2 (220 m)</p>
+        </div>
+        <button onclick="focusSelectedSegment()" class="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-[10px] mono text-emerald-300 border border-slate-700 shrink-0">
+          Fly To 3D
+        </button>
+      </div>
+
+      <!-- Proxy vs Measured Score Comparison Box -->
+      <div class="grid grid-cols-3 gap-2 bg-slate-900/90 p-2.5 rounded-lg border border-slate-800 text-center">
+        <div>
+          <div class="text-[9px] mono text-blue-400 uppercase">[PROXY] Score</div>
+          <div id="sel-proxy-score" class="text-lg font-bold mono text-blue-300 mt-0.5">82</div>
+          <div id="sel-proxy-label" class="text-[9px] text-slate-400 truncate">GIS Canopy 34%</div>
+        </div>
+        <div class="border-x border-slate-800 px-1">
+          <div class="text-[9px] mono text-emerald-400 uppercase">[MEASURED]</div>
+          <div id="sel-meas-score" class="text-lg font-bold mono text-emerald-300 mt-0.5">31</div>
+          <div id="sel-meas-label" class="text-[9px] text-slate-400">20 Shade Pts</div>
+        </div>
+        <div>
+          <div class="text-[9px] mono text-slate-400 uppercase">Audit Gap</div>
+          <div id="sel-gap-score" class="text-lg font-bold mono text-rose-400 mt-0.5">+51</div>
+          <div class="text-[9px] text-slate-500">Threshold &plusmn;15</div>
+        </div>
+      </div>
+
+      <!-- ISO 7243 WBGT Output Box -->
+      <div class="bg-slate-900/95 border border-slate-800 rounded-lg p-3">
+        <div class="flex items-center justify-between mb-1.5">
+          <span class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">ISO 7243 Outdoor WBGT</span>
+          <span class="text-[9px] mono px-1.5 py-0.5 rounded prov-measured">0.7·Tnw + 0.2·Tg + 0.1·Ta</span>
+        </div>
+        <div class="grid grid-cols-3 gap-2 items-center text-center pt-1">
+          <div class="bg-slate-950/70 p-2 rounded border border-slate-800/80">
+            <div class="text-[9px] text-slate-400 mono">Wet-Bulb (Tnw)</div>
+            <div id="val-tnw" class="text-sm font-bold mono text-cyan-300">28.2 &deg;C</div>
+            <div class="text-[9px] text-slate-500">Stull (2011)</div>
+          </div>
+          <div class="bg-slate-950/70 p-2 rounded border border-slate-800/80">
+            <div class="text-[9px] text-slate-400 mono">Outdoor WBGT</div>
+            <div id="val-wbgt" class="text-base font-bold mono text-rose-400">30.6 &deg;C</div>
+            <div id="val-wbgt-status" class="text-[9px] font-bold mono text-rose-400">EXCEEDS 28.0&deg;C</div>
+          </div>
+          <div class="bg-slate-950/70 p-2 rounded border border-slate-800/80">
+            <div class="text-[9px] text-slate-400 mono">4–6PM Footfall</div>
+            <div id="val-footfall" class="text-sm font-bold mono text-amber-300">19 / hr</div>
+            <div class="text-[9px] text-slate-500">Counted [MEASURED]</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Interactive Field Sensor Sliders -->
+      <div class="space-y-2.5 pt-1">
+        <div class="flex items-center justify-between">
+          <span class="text-[11px] font-semibold text-slate-300">Handheld Meter Override (Test "What-If")</span>
+          <button onclick="resetSelectedSegmentSensors()" class="text-[10px] mono text-slate-400 hover:text-white underline">Reset</button>
+        </div>
+
+        <div>
+          <div class="flex justify-between text-[11px] mb-0.5">
+            <span class="text-slate-300">Dry-Bulb Air Temp (<span class="mono">Ta</span>) <span class="prov-measured px-1 rounded text-[9px] mono">MEASURED</span></span>
+            <span id="lbl-ta" class="mono font-bold text-emerald-400">33.8 &deg;C</span>
+          </div>
+          <input id="inp-ta" type="range" min="26.0" max="38.0" step="0.1" value="33.8" oninput="onSensorSliderChange()" class="w-full h-1.5" />
+        </div>
+
+        <div>
+          <div class="flex justify-between text-[11px] mb-0.5">
+            <span class="text-slate-300">Relative Humidity (<span class="mono">RH</span>) <span class="prov-measured px-1 rounded text-[9px] mono">MEASURED</span></span>
+            <span id="lbl-rh" class="mono font-bold text-emerald-400">68 %</span>
+          </div>
+          <input id="inp-rh" type="range" min="45" max="90" step="1" value="68" oninput="onSensorSliderChange()" class="w-full h-1.5" />
+        </div>
+
+        <div>
+          <div class="flex justify-between text-[11px] mb-0.5">
+            <span class="text-slate-300">Black Globe Temp (<span class="mono">Tg</span>) <span class="prov-measured px-1 rounded text-[9px] mono">MEASURED</span></span>
+            <span id="lbl-tg" class="mono font-bold text-emerald-400">44.2 &deg;C</span>
+          </div>
+          <input id="inp-tg" type="range" min="28.0" max="54.0" step="0.2" value="44.2" oninput="onSensorSliderChange()" class="w-full h-1.5" />
+        </div>
+
+        <div>
+          <div class="flex justify-between text-[11px] mb-0.5">
+            <span class="text-slate-300">Route Shade Continuity (20 pts) <span class="prov-measured px-1 rounded text-[9px] mono">MEASURED</span></span>
+            <span id="lbl-shade" class="mono font-bold text-emerald-400">22 %</span>
+          </div>
+          <input id="inp-shade" type="range" min="0" max="100" step="1" value="22" oninput="onSensorSliderChange()" class="w-full h-1.5" />
+        </div>
+
+        <div class="pt-1 border-t border-slate-800/80">
+          <div class="flex justify-between text-[11px] mb-0.5">
+            <span class="text-amber-300">Walkability WBGT Limit <span class="prov-assumed px-1 rounded text-[9px] mono">ASSUMED · §8</span></span>
+            <span id="lbl-thresh" class="mono font-bold text-amber-300">28.0 &deg;C</span>
+          </div>
+          <input id="inp-thresh" type="range" min="26.0" max="31.0" step="0.1" value="28.0" oninput="onThresholdChange()" class="w-full h-1.5" />
+          <p class="text-[9px] text-slate-500 mt-0.5">Configurable threshold for light walking by an acclimatised adult (not a medical limit).</p>
+        </div>
+      </div>
+
+      <!-- Diagnostic & Action Box -->
+      <div class="bg-slate-900/90 border border-slate-800 rounded-lg p-2.5 text-[11px] space-y-1.5">
+        <div>
+          <span class="text-[10px] font-bold uppercase text-rose-300 mono">Ground-Truth Finding:</span>
+          <p id="sel-finding" class="text-slate-300 mt-0.5 leading-relaxed"></p>
+        </div>
+        <div class="pt-1 border-t border-slate-800/80">
+          <span class="text-[10px] font-bold uppercase text-emerald-300 mono">Weeks 3–8 Intervention:</span>
+          <p id="sel-action" class="text-slate-300 mt-0.5 leading-relaxed"></p>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 2: 10,000-DRAW MONTE CARLO COOLING & TNB RP4 TARIFF ENGINE -->
+    <div id="panel-montecarlo" class="glass rounded-xl p-3.5 pointer-events-auto flex-1 overflow-y-auto space-y-3 hidden shadow-xl">
+      <div class="border-b border-slate-800 pb-2">
+        <div class="flex items-center justify-between">
+          <h3 class="text-xs font-bold uppercase tracking-wider text-white">Seeded Monte Carlo Engine (10,000 Draws)</h3>
+          <span class="text-[9px] mono px-1.5 py-0.5 rounded prov-modelled">p10 / p50 / p90</span>
+        </div>
+        <p class="text-[11px] text-slate-400 mt-1">
+          Per §8 &amp; §9.7: Never state a single-point Ringgit figure. All savings are computed from editable RP4 tariff and <span class="mono text-amber-300">ASSUMED</span> sensitivity parameters.
+        </p>
+      </div>
+
+      <div class="bg-slate-900/90 border border-slate-800 rounded-lg p-2.5 text-[10px] mono text-slate-300">
+        kWh_saved = E_cool_base &times; clamp(&alpha; &times; &Delta;T, 0, 0.30)
+      </div>
+
+      <!-- Editable Parameters -->
+      <div class="space-y-2.5">
+        <div>
+          <div class="flex justify-between text-[11px] mb-0.5">
+            <span class="text-slate-300">RP4 Base Tariff (sen/kWh) <span class="prov-verified px-1 rounded text-[9px] mono">VERIFIED</span></span>
+            <span id="lbl-mc-tariff" class="mono font-bold text-teal-300">45.40 sen</span>
+          </div>
+          <input id="inp-mc-tariff" type="range" min="39.95" max="55.00" step="0.05" value="45.40" oninput="runMonteCarlo()" class="w-full h-1.5" />
+          <div class="text-[9px] text-slate-500">1 Jul 2025 base tariff: 39.95 &rarr; 45.4 sen/kWh (+13.6%); 800 kWh protection threshold.</div>
+        </div>
+
+        <div>
+          <div class="flex justify-between text-[11px] mb-0.5">
+            <span class="text-amber-300">Cooling Coeff (&alpha; per &deg;C) <span class="prov-assumed px-1 rounded text-[9px] mono">ASSUMED</span></span>
+            <span id="lbl-mc-alpha" class="mono font-bold text-amber-300">0.060 (6.0%)</span>
+          </div>
+          <input id="inp-mc-alpha" type="range" min="0.030" max="0.090" step="0.005" value="0.060" oninput="runMonteCarlo()" class="w-full h-1.5" />
+          <div class="text-[9px] text-slate-500">Triangular distribution across 0.03–0.09 sensitivity range (§8).</div>
+        </div>
+
+        <div>
+          <div class="flex justify-between text-[11px] mb-0.5">
+            <span class="text-slate-300">Modal &Delta;T Reduction (&deg;C) <span class="prov-modelled px-1 rounded text-[9px] mono">MODELLED</span></span>
+            <span id="lbl-mc-dt" class="mono font-bold text-purple-300">1.6 &deg;C</span>
+          </div>
+          <input id="inp-mc-dt" type="range" min="0.5" max="3.0" step="0.1" value="1.6" oninput="runMonteCarlo()" class="w-full h-1.5" />
+        </div>
+
+        <div>
+          <div class="flex justify-between text-[11px] mb-0.5">
+            <span class="text-slate-300">Township Scale (Homes) <span class="prov-assumed px-1 rounded text-[9px] mono">ASSUMED</span></span>
+            <span id="lbl-mc-homes" class="mono font-bold text-emerald-300">5,000</span>
+          </div>
+          <input id="inp-mc-homes" type="range" min="1000" max="10000" step="500" value="5000" oninput="runMonteCarlo()" class="w-full h-1.5" />
+        </div>
+      </div>
+
+      <!-- p10 / p50 / p90 Cards -->
+      <div class="grid grid-cols-3 gap-2 text-center">
+        <div class="bg-slate-900/90 border border-slate-800 rounded-lg p-2">
+          <div class="text-[9px] mono text-slate-400">p10 (Conservative)</div>
+          <div id="mc-p10-hh" class="text-sm font-bold mono text-slate-200 mt-0.5">RM 86</div>
+          <div id="mc-p10-twp" class="text-[9px] mono text-slate-400">RM 0.43M/yr</div>
+        </div>
+        <div class="bg-emerald-950/30 border border-emerald-500/40 rounded-lg p-2">
+          <div class="text-[9px] mono text-emerald-300 font-semibold">p50 (Median)</div>
+          <div id="mc-p50-hh" class="text-sm font-bold mono text-emerald-300 mt-0.5">RM 134</div>
+          <div id="mc-p50-twp" class="text-[9px] mono text-emerald-400">RM 0.67M/yr</div>
+        </div>
+        <div class="bg-slate-900/90 border border-slate-800 rounded-lg p-2">
+          <div class="text-[9px] mono text-amber-300">p90 (Upper)</div>
+          <div id="mc-p90-hh" class="text-sm font-bold mono text-amber-300 mt-0.5">RM 192</div>
+          <div id="mc-p90-twp" class="text-[9px] mono text-slate-400">RM 0.96M/yr</div>
+        </div>
+      </div>
+
+      <!-- Histogram Bars -->
+      <div class="bg-slate-900/90 border border-slate-800 rounded-lg p-2.5">
+        <div class="flex justify-between text-[9px] mono text-slate-400 mb-1.5">
+          <span>10,000-Draw Distribution (RM/Household/Yr)</span>
+          <span>Seed: 20261021</span>
+        </div>
+        <div id="mc-histogram" class="h-20 flex items-end gap-1 pt-2"></div>
+      </div>
+    </div>
+
+    <!-- TAB 3: §3.5 STANDARDS HYGIENE & §15 OPEN FIELD QUESTIONS -->
+    <div id="panel-framework" class="glass rounded-xl p-3.5 pointer-events-auto flex-1 overflow-y-auto space-y-3 hidden shadow-xl">
+      <div>
+        <h3 class="text-xs font-bold uppercase tracking-wider text-rose-300">§3.5 &amp; §9 Rejected Myths (Never Claim)</h3>
+        <div class="space-y-1.5 mt-2 text-[11px]">
+          <div class="p-2 rounded bg-rose-950/30 border border-rose-500/30">
+            <span class="font-bold text-rose-300 mono">[REJECTED]</span> "MS 1525 mandates house cross-ventilation."
+            <div class="text-slate-300 text-[10px] mt-0.5">&rarr; MS 1525:2019 is non-residential (&gt;4,000 m&sup2;). Use <strong>MS 2680</strong> for residential homes.</div>
+          </div>
+          <div class="p-2 rounded bg-rose-950/30 border border-rose-500/30">
+            <span class="font-bold text-rose-300 mono">[REJECTED]</span> "SRI &gt; 78 required by GBI/LCCF."
+            <div class="text-slate-300 text-[10px] mt-0.5">&rarr; SRI &gt; 78 is LEED. LCCF recommends <strong>SRI &ge; 29</strong> for paving &amp; surfaces.</div>
+          </div>
+          <div class="p-2 rounded bg-rose-950/30 border border-rose-500/30">
+            <span class="font-bold text-rose-300 mono">[REJECTED]</span> "ENVI-met is statutory / GBI is mandatory."
+            <div class="text-slate-300 text-[10px] mt-0.5">&rarr; ENVI-met is a voluntary model (`[MODELLED]`). GBI (4 credits) &amp; LCCF (UE 2-6, 1/41) are voluntary. GP024 is a planning guideline.</div>
+          </div>
+          <div class="p-2 rounded bg-rose-950/30 border border-rose-500/30">
+            <span class="font-bold text-rose-300 mono">[REJECTED]</span> "MS ISO 37122:2019."
+            <div class="text-slate-300 text-[10px] mt-0.5">&rarr; Correct Malaysian designation is <strong>MS ISO 37122:2021</strong> (city indicator standard).</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="pt-2 border-t border-slate-800">
+        <h3 class="text-xs font-bold uppercase tracking-wider text-amber-300">§15 Open Questions (Only Field Work Can Answer)</h3>
+        <p class="text-[10px] text-slate-400 mt-0.5">Every item below is currently <span class="mono text-amber-300">[ASSUMED]</span> until measured in the RM 80k–150k 12-week pilot:</p>
+        <ol class="list-decimal list-inside text-[10px] text-slate-300 space-y-1 mt-1.5 leading-relaxed">
+          <li>Actual indoor temp in an occupied township home at 3pm?</li>
+          <li>How many people use parks/routes between 4pm and 6pm today?</li>
+          <li>Does GIS canopy % predict shade on the route people actually walk?</li>
+          <li>Does a compliant roof spec produce a measurably cooler room?</li>
+          <li>Which hours, exactly, are lost? (Assumed 12pm–5pm)</li>
+          <li>Does resident perception match instrumented WBGT?</li>
+          <li>Will a developer publish a negative finding (internal assurance first)?</li>
+          <li>Real cost per 50m of route retrofit in a Malaysian township?</li>
+        </ol>
+      </div>
+    </div>
+  </aside>
+
+  <!-- BOTTOM FLOATING TELEMETRY / GUIDED STORYBOARD CAPTION BAR -->
+  <div class="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 pointer-events-none w-[92%] max-w-2xl">
+    <div class="glass rounded-xl px-4 py-2.5 pointer-events-auto border border-slate-700/80 shadow-2xl flex items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <div id="caption-badge" class="px-2 py-1 rounded bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 mono text-[10px] font-bold shrink-0">
+          3D INTERACTIVE
+        </div>
+        <p id="caption-text" class="text-xs text-slate-200 leading-snug">
+          Drag to orbit 3D township, scroll to zoom, or click any glowing route corridor (`SEG-01` to `SEG-06`) to audit its design proxy vs. ground-truth WBGT.
+        </p>
+      </div>
+      <div class="text-[10px] mono text-slate-400 shrink-0 hidden sm:block" id="caption-timer">
+        ISO 7243 · Stull (2011)
+      </div>
+    </div>
+  </div>
+
+  <!-- APPLICATION & THREE.JS LOGIC -->
+  <script>
+    // =========================================================================
+    // 1. SCIENTIFIC & EMPIRICAL FORMULAS (§8)
+    // =========================================================================
+
+    // Stull (2011) empirical psychrometric wet-bulb approximation
+    function computeStullWetBulb(Ta, RH) {
+      const rh = Math.max(5, Math.min(99, RH));
+      const term1 = Ta * Math.atan(0.151977 * Math.pow(rh + 8.313659, 0.5));
+      const term2 = Math.atan(Ta + rh);
+      const term3 = Math.atan(rh - 1.676331);
+      const term4 = 0.00391838 * Math.pow(rh, 1.5) * Math.atan(0.023101 * rh);
+      return term1 + term2 - term3 + term4 - 4.686035;
+    }
+
+    // ISO 7243 Outdoor WBGT = 0.7*Tnw + 0.2*Tg + 0.1*Ta
+    function computeOutdoorWBGT(Ta, RH, Tg) {
+      const Tnw = computeStullWetBulb(Ta, RH);
+      const WBGT = 0.7 * Tnw + 0.2 * Tg + 0.1 * Ta;
+      return { Tnw, WBGT };
+    }
+
+    // Normalised 0-100 Measured Comfort Score combining WBGT and 20-pt route shade continuity
+    function computeMeasuredScore(wbgt, shadePct, threshold) {
+      const delta = wbgt - threshold;
+      const thermalSub = Math.max(0, Math.min(100, 72 - delta * 15.5));
+      const score = Math.round(0.65 * thermalSub + 0.35 * shadePct);
+      return Math.max(0, Math.min(100, score));
+    }
+
+    // Diurnal temperature & globe profile helper (7:00 to 19:00)
+    function getDiurnalModifiers(hour) {
+      // Peak heat around 14:30 (hour = 14.5), reference audit hour is 16.0 (4:00 PM)
+      const phase = Math.sin(((hour - 6.5) / 13.0) * Math.PI);
+      const refPhase = Math.sin(((16.0 - 6.5) / 13.0) * Math.PI);
+      const deltaFrom4pm = phase - refPhase; // ~ +0.24 at 14:00, 0 at 16:00, -0.65 at 8:00
+      return {
+        taOffset: deltaFrom4pm * 4.2,
+        rhOffset: -deltaFrom4pm * 14.0,
+        tgOffset: deltaFrom4pm * 9.5
+      };
+    }
+
+    // =========================================================================
+    // 2. PRECINCT ARA DATASET (6 SEGMENTS + 3D COORDINATES)
+    // =========================================================================
+    // Coordinates in 3D space (X: -120 to +120, Z: -90 to +90)
+    const SEGMENTS = [
+      {
+        id: 'SEG-01',
+        name: 'Persiaran Ara School Walk',
+        routeMeta: 'Primary School Gate → Terrace Phase 2 (220 m)',
+        lengthM: 220,
+        proxyMetricLabel: 'GIS Canopy 34% [PROXY]',
+        proxyScore: 82,
+        path3D: [ [-95, -45], [-20, -45], [35, -45] ],
+        colorHex: 0xf43f5e,
+        baseline: {
+          Ta: 33.8, RH: 68, Tg: 44.2, shadePct: 22, footfall: 19,
+          finding: 'GIS records 34% tree canopy, but crowns sit in the central road divider. The pedestrian footpath to the school gate is 78% unshaded asphalt at 4pm.',
+          action: 'Reallocate maintenance budget: install 65m continuous pergola at school crossing + infill 18 Hopea odorata trees directly over walkway.'
+        },
+        retrofit: {
+          Ta: 31.6, RH: 70, Tg: 34.0, shadePct: 84, footfall: 64,
+          finding: 'Weeks 9–12 Re-Audit: Continuous footpath canopy + pergola drops globe temperature by 10.2°C. Gap closed from +51 to +4 (VERIFIED).',
+          action: 'Verified compliant. Maintain canopy pruning schedule to preserve pedestrian shade envelope.'
+        }
+      },
+      {
+        id: 'SEG-02',
+        name: 'Surau Al-Hidayah Linkway',
+        routeMeta: 'Terrace Collector → Surau Perimeter (180 m)',
+        lengthM: 180,
+        proxyMetricLabel: 'GP024 <400m Access [PROXY]',
+        proxyScore: 78,
+        path3D: [ [-75, -45], [-75, 10], [-75, 55] ],
+        colorHex: 0xf43f5e,
+        baseline: {
+          Ta: 33.4, RH: 69, Tg: 42.8, shadePct: 28, footfall: 14,
+          finding: 'Meets GP024 400m radius on paper, but west-facing boundary wall radiates heat onto paved walkway during Asar prayer walk (4:15pm).',
+          action: 'Install high-albedo paving (LCCF SRI ≥ 29 compliant) + cantilevered shade fins along west boundary wall.'
+        },
+        retrofit: {
+          Ta: 31.5, RH: 70, Tg: 34.4, shadePct: 79, footfall: 49,
+          finding: 'Weeks 9–12 Re-Audit: Vertical shade fins + SRI ≥ 29 paving bring 4pm WBGT below 28.0°C threshold for elderly congregants.',
+          action: 'Verified compliant. Included in GP024 Kebenaran Merancang (KM) audit dossier.'
+        }
+      },
+      {
+        id: 'SEG-03',
+        name: 'Laman Niaga Shop-Row Frontage',
+        routeMeta: 'Corner Grocer & Clinic Apron (210 m)',
+        lengthM: 210,
+        proxyMetricLabel: 'Paving Spec SRI ≥ 29 [PROXY]',
+        proxyScore: 75,
+        path3D: [ [35, -45], [35, 15], [35, 65] ],
+        colorHex: 0xf43f5e,
+        baseline: {
+          Ta: 34.4, RH: 65, Tg: 46.0, shadePct: 15, footfall: 23,
+          finding: 'Utility setback left zero tree pits; dark interlocking pavers replaced specified SRI ≥ 29 blocks and AC condensers discharge onto walkway.',
+          action: 'Add retractable awning extensions + high-SRI cool coat resurfacing + redirect ground-floor AC condenser exhaust louvers.'
+        },
+        retrofit: {
+          Ta: 32.1, RH: 67, Tg: 35.2, shadePct: 76, footfall: 68,
+          finding: 'Weeks 9–12 Re-Audit: Awning extension + cool-coat resurfacing lowers 4pm WBGT from 31.1°C to 27.9°C.',
+          action: 'Verified compliant. Commercial afternoon footfall increased +195%.'
+        }
+      },
+      {
+        id: 'SEG-04',
+        name: 'Central Spine Connector',
+        routeMeta: 'Phase 1 Terrace → Central Playground (170 m)',
+        lengthM: 170,
+        proxyMetricLabel: 'ENVI-met Model -1.8°C [MODELLED]',
+        proxyScore: 80,
+        path3D: [ [-75, 10], [-20, 10], [35, 15] ],
+        colorHex: 0xf59e0b,
+        baseline: {
+          Ta: 33.5, RH: 67, Tg: 43.1, shadePct: 30, footfall: 16,
+          finding: 'Consultant ENVI-met model assumed mature 10m tree crowns at handover; actual saplings are 2.2m tall with broken shade continuity.',
+          action: 'Install temporary tensioned shade sails over playground approach while saplings mature over 36 months.'
+        },
+        retrofit: {
+          Ta: 32.4, RH: 68, Tg: 37.8, shadePct: 58, footfall: 37,
+          finding: 'Weeks 9–12 Re-Audit: Partial shade sails lowered WBGT to 28.4°C, but mid-span crossing remains 0.4°C above 28.0°C limit. Kept flagged honestly (§9.10).',
+          action: 'Requires 1 additional shade sail span in next maintenance cycle.'
+        }
+      },
+      {
+        id: 'SEG-05',
+        name: 'Linear Park Rain-Tree Walk',
+        routeMeta: 'Riparian Greenway Corridor (240 m)',
+        lengthM: 240,
+        proxyMetricLabel: 'GIS Canopy 42% [PROXY]',
+        proxyScore: 84,
+        path3D: [ [-95, 55], [-20, 55], [65, 65] ],
+        colorHex: 0x10b981,
+        baseline: {
+          Ta: 30.8, RH: 72, Tg: 32.9, shadePct: 86, footfall: 74,
+          finding: 'Preserved mature Samanea saman (Rain Tree) corridor delivers continuous interlocking canopy directly over footpath. Proxy matches reality (Gap +3).',
+          action: 'No capital retrofit required. Protect root zones and use as benchmark reference corridor.'
+        },
+        retrofit: {
+          Ta: 30.7, RH: 72, Tg: 32.6, shadePct: 88, footfall: 79,
+          finding: 'Weeks 9–12 Re-Audit: Remains the township thermal benchmark (WBGT 27.3°C at 4pm). Confirms Layer 1 proxy works when canopy is continuous.',
+          action: 'Benchmark control corridor.'
+        }
+      },
+      {
+        id: 'SEG-06',
+        name: 'Jalan Ara 4 Terrace Cul-de-Sac',
+        routeMeta: 'N–S Oriented Residential Mews (150 m)',
+        lengthM: 150,
+        proxyMetricLabel: 'GIS Tree Canopy 12% [PROXY]',
+        proxyScore: 52,
+        path3D: [ [80, -45], [80, 10], [80, 65] ],
+        colorHex: 0x38bdf8,
+        baseline: {
+          Ta: 31.3, RH: 70, Tg: 34.4, shadePct: 75, footfall: 44,
+          finding: 'PROXY_UNRELIABLE (Under-Credited, Gap -21): GIS tree canopy is only 12%, but North-South building orientation + MS 2680 deep car-porch eaves shade 75% of the street after 3:30pm.',
+          action: 'Zero tree budget needed here! Reallocate scheduled tree planting funds from SEG-06 to exposed School Walk (SEG-01).'
+        },
+        retrofit: {
+          Ta: 31.1, RH: 70, Tg: 33.9, shadePct: 78, footfall: 48,
+          finding: 'Weeks 9–12 Re-Audit: Architectural massing continues to provide passive afternoon shade (WBGT 27.6°C). GIS proxy calibrated to credit building shadows.',
+          action: 'Budget successfully reallocated to SEG-01.'
+        }
+      }
+    ];
+
+    // =========================================================================
+    // 3. STATE MANAGEMENT
+    // =========================================================================
+    let state = {
+      stage: 'baseline',         // 'baseline' | 'retrofit'
+      layerView: 'ground',       // 'proxy' | 'ground'
+      selectedId: 'SEG-01',
+      solarHour: 16.0,           // 7.0 to 19.0 (16.0 = 4:00 PM)
+      wbgtThreshold: 28.0,       // Configurable §8 threshold
+      sunPlaying: false,
+      sensorOverrides: {},       // Custom slider overrides per segment
+      tourActive: false,
+      tourStep: 0,
+      tourTimer: null
+    };
+
+    // =========================================================================
+    // 4. THREE.JS 3D SCENE INITIALIZATION
+    // =========================================================================
+    let scene, camera, renderer, controls, sunLight, ambientLight;
+    let routeMeshes = {};        // { 'SEG-01': THREE.Group }
+    let retrofitGroup;           // 3D Pergolas, Retrofitted Trees, Cool Roofs, Shade Sails
+    let peopleGroup;             // Animated pedestrians (scale with walkability)
+    let markerElements = {};     // { 'SEG-01': HTMLElement }
+
+    function init3D() {
+      const container = document.getElementById('canvas-container');
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x070b14);
+      scene.fog = new THREE.FogExp2(0x070b14, 0.0022);
+
+      camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 1, 1000);
+      camera.position.set(-40, 115, 165);
+
+      renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      container.appendChild(renderer.domElement);
+
+      controls = new THREE.OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.06;
+      controls.maxPolarAngle = Math.PI / 2 - 0.03;
+      controls.minDistance = 25;
+      controls.maxDistance = 320;
+      controls.target.set(-5, 0, 5);
+
+      // Lighting
+      ambientLight = new THREE.HemisphereLight(0xdbeafe, 0x1e293b, 0.55);
+      scene.add(ambientLight);
+
+      sunLight = new THREE.DirectionalLight(0xfffbeb, 1.35);
+      sunLight.castShadow = true;
+      sunLight.shadow.mapSize.width = 2048;
+      sunLight.shadow.mapSize.height = 2048;
+      sunLight.shadow.camera.near = 10;
+      sunLight.shadow.camera.far = 400;
+      const d = 140;
+      sunLight.shadow.camera.left = -d;
+      sunLight.shadow.camera.right = d;
+      sunLight.shadow.camera.top = d;
+      sunLight.shadow.camera.bottom = -d;
+      scene.add(sunLight);
+
+      buildTownshipGeometry();
+      buildRouteCorridors();
+      buildRetrofitAssets();
+      buildPedestrians();
+      createHTMLMarkers();
+
+      updateSunPosition(state.solarHour);
+      refreshSimulationUI();
+
+      window.addEventListener('resize', onWindowResize);
+      animate();
+    }
+
+    // Build Ground, Roads, Terrace Houses, School, Surau, Shop Row, and Baseline Trees
+    function buildTownshipGeometry() {
+      // Base Ground Plane
+      const groundGeo = new THREE.PlaneGeometry(340, 260);
+      const groundMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.95 });
+      const ground = new THREE.Mesh(groundGeo, groundMat);
+      ground.rotation.x = -Math.PI / 2;
+      ground.receiveShadow = true;
+      scene.add(ground);
+
+      // Subtle Survey Grid
+      const grid = new THREE.GridHelper(320, 32, 0x1e293b, 0x111827);
+      grid.position.y = 0.05;
+      scene.add(grid);
+
+      // Asphalt Road Network
+      const roadMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.85 });
+      const roads = [
+        { x: -30, z: -53, w: 150, d: 10 }, // School road (median trees sit here, away from walkway!)
+        { x: -83, z: 5,   w: 10,  d: 110 },
+        { x: 27,  z: 10,  w: 10,  d: 120 },
+        { x: 72,  z: 10,  w: 10,  d: 120 }
+      ];
+      roads.forEach(r => {
+        const mesh = new THREE.Mesh(new THREE.BoxGeometry(r.w, 0.2, r.d), roadMat);
+        mesh.position.set(r.x, 0.1, r.z);
+        mesh.receiveShadow = true;
+        scene.add(mesh);
+      });
+
+      // Riparian Green Buffer Zone (SEG-05)
+      const parkGeo = new THREE.BoxGeometry(190, 0.25, 24);
+      const parkMat = new THREE.MeshStandardMaterial({ color: 0x064e3b, roughness: 0.9 });
+      const park = new THREE.Mesh(parkGeo, parkMat);
+      park.position.set(-15, 0.12, 60);
+      park.receiveShadow = true;
+      scene.add(park);
+
+      // Helper to build Terrace House Rows
+      function addTerraceRow(startX, startZ, count, dx, dz, w, d, h, roofColor) {
+        const wallMat = new THREE.MeshStandardMaterial({ color: 0xcbd5e1, roughness: 0.7 });
+        const roofMat = new THREE.MeshStandardMaterial({ color: roofColor, roughness: 0.6 });
+        for (let i = 0; i < count; i++) {
+          const hx = startX + i * dx;
+          const hz = startZ + i * dz;
+          const house = new THREE.Group();
+
+          const body = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), wallMat);
+          body.position.y = h / 2;
+          body.castShadow = true;
+          body.receiveShadow = true;
+          house.add(body);
+
+          // Pitched / Overhanging Roof (MS 2680 eaves)
+          const roof = new THREE.Mesh(new THREE.BoxGeometry(w + 1.8, 1.2, d + 2.4), roofMat);
+          roof.position.y = h + 0.6;
+          roof.castShadow = true;
+          roof.receiveShadow = true;
+          house.add(roof);
+
+          house.position.set(hx, 0, hz);
+          scene.add(house);
+        }
+      }
+
+      // Terrace Phase 1 & 2 (Standard dark roofs)
+      addTerraceRow(-60, -28, 6, 13, 0, 11, 14, 7.5, 0x334155);
+      addTerraceRow(-60, -5,  6, 13, 0, 11, 14, 7.5, 0x334155);
+      addTerraceRow(-55, 28,  6, 13, 0, 11, 14, 7.5, 0x334155);
+
+      // SEG-06: North-South Oriented Terrace Cul-de-Sac (Deep overhangs that cast afternoon shade onto x=80 footpath)
+      addTerraceRow(92, -38, 7, 0, 15, 16, 12, 9.5, 0x475569);
+      addTerraceRow(62, -38, 7, 0, 15, 14, 12, 9.5, 0x475569);
+
+      // Primary School Complex (West end of SEG-01)
+      const schoolMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.6 });
+      const schoolRoofMat = new THREE.MeshStandardMaterial({ color: 0x991b1b, roughness: 0.7 });
+      const school = new THREE.Mesh(new THREE.BoxGeometry(28, 11, 22), schoolMat);
+      school.position.set(-108, 5.5, -45);
+      school.castShadow = true;
+      school.receiveShadow = true;
+      scene.add(school);
+      const schoolRoof = new THREE.Mesh(new THREE.BoxGeometry(30, 1.5, 24), schoolRoofMat);
+      schoolRoof.position.set(-108, 11.75, -45);
+      schoolRoof.castShadow = true;
+      scene.add(schoolRoof);
+
+      // Surau Al-Hidayah (South-West end of SEG-02)
+      const surau = new THREE.Mesh(new THREE.BoxGeometry(18, 8, 18), schoolMat);
+      surau.position.set(-96, 4, 38);
+      surau.castShadow = true;
+      surau.receiveShadow = true;
+      scene.add(surau);
+      const dome = new THREE.Mesh(
+        new THREE.SphereGeometry(6, 20, 14, 0, Math.PI * 2, 0, Math.PI / 2),
+        new THREE.MeshStandardMaterial({ color: 0x059669, roughness: 0.4 })
+      );
+      dome.position.set(-96, 8, 38);
+      dome.castShadow = true;
+      scene.add(dome);
+
+      // Laman Niaga Commercial Shop Row (SEG-03, East of x=35)
+      addTerraceRow(49, -35, 6, 0, 16, 15, 14, 10.5, 0x1e293b);
+
+      // BASELINE TREES:
+      // 1. Misplaced Median Trees on SEG-01 (Planted at z = -56 road divider, leaving z = -45 walkway exposed!)
+      for (let x = -85; x <= 25; x += 16) {
+        addTree(x, -57, 4.5, 4.2, 0x15803d);
+      }
+
+      // 2. Sparse Immature Saplings on SEG-04 (Central Spine, z = 10)
+      for (let x = -60; x <= 15; x += 25) {
+        addTree(x, 14, 2.2, 1.4, 0x4d7c0f);
+      }
+
+      // 3. Mature Interlocking Samanea saman (Rain Trees) on SEG-05 Linear Park (z = 55-65)
+      for (let x = -90; x <= 60; x += 13) {
+        addTree(x, 53 + (x + 90) * 0.06, 8.5, 7.8, 0x047857);
+        addTree(x + 5, 61 + (x + 90) * 0.06, 8.0, 7.2, 0x065f46);
+      }
+    }
+
+    function addTree(x, z, height, crownRadius, colorHex, parentGroup = scene) {
+      const g = new THREE.Group();
+      const trunk = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.35, 0.5, height * 0.55, 8),
+        new THREE.MeshStandardMaterial({ color: 0x451a03, roughness: 0.9 })
+      );
+      trunk.position.y = (height * 0.55) / 2;
+      trunk.castShadow = true;
+      g.add(trunk);
+
+      const crown = new THREE.Mesh(
+        new THREE.SphereGeometry(crownRadius, 14, 12),
+        new THREE.MeshStandardMaterial({ color: colorHex, roughness: 0.75 })
+      );
+      crown.scale.set(1.15, 0.65, 1.15); // Umbrella rain-tree canopy profile
+      crown.position.y = height;
+      crown.castShadow = true;
+      crown.receiveShadow = true;
+      g.add(crown);
+
+      g.position.set(x, 0, z);
+      parentGroup.add(g);
+    }
+
+    // Build Interactive 3D Walkway Corridors for SEG-01 to SEG-06
+    function buildRouteCorridors() {
+      SEGMENTS.forEach(seg => {
+        const group = new THREE.Group();
+        group.userData = { segmentId: seg.id };
+
+        for (let i = 0; i < seg.path3D.length - 1; i++) {
+          const p1 = new THREE.Vector3(seg.path3D[i][0], 0.4, seg.path3D[i][1]);
+          const p2 = new THREE.Vector3(seg.path3D[i + 1][0], 0.4, seg.path3D[i + 1][1]);
+          const dist = p1.distanceTo(p2);
+          const mid = p1.clone().add(p2).multiplyScalar(0.5);
+          const angle = Math.atan2(p2.x - p1.x, p2.z - p1.z);
+
+          const walkGeo = new THREE.BoxGeometry(4.2, 0.45, dist + 2);
+          const walkMat = new THREE.MeshStandardMaterial({
+            color: seg.colorHex,
+            emissive: seg.colorHex,
+            emissiveIntensity: 0.35,
+            roughness: 0.4
+          });
+          const mesh = new THREE.Mesh(walkGeo, walkMat);
+          mesh.position.copy(mid);
+          mesh.rotation.y = angle;
+          mesh.receiveShadow = true;
+          mesh.userData = { segmentId: seg.id };
+          group.add(mesh);
+        }
+
+        // Add 20-Point Ground-Truth Audit Sensor Nodes along the path
+        const start = new THREE.Vector3(seg.path3D[0][0], 1.0, seg.path3D[0][1]);
+        const end = new THREE.Vector3(seg.path3D[seg.path3D.length - 1][0], 1.0, seg.path3D[seg.path3D.length - 1][1]);
+        for (let s = 0; s <= 4; s++) {
+          const pt = start.clone().lerp(end, s / 4);
+          const node = new THREE.Mesh(
+            new THREE.SphereGeometry(0.75, 10, 10),
+            new THREE.MeshBasicMaterial({ color: 0xffffff })
+          );
+          node.position.copy(pt);
+          group.add(node);
+        }
+
+        routeMeshes[seg.id] = group;
+        scene.add(group);
+      });
+    }
+
+    // Build Weeks 3-8 Surgical Retrofit Assets (Toggled on in Weeks 9-12 Stage)
+    function buildRetrofitAssets() {
+      retrofitGroup = new THREE.Group();
+
+      // 1. SEG-01 School Walk Covered Architectural Pergola + Hopea odorata Infill Trees directly over z=-45 walkway
+      const pergolaMat = new THREE.MeshStandardMaterial({ color: 0x0d9488, roughness: 0.4 });
+      const pergolaRoof = new THREE.Mesh(new THREE.BoxGeometry(130, 0.4, 5.2), pergolaMat);
+      pergolaRoof.position.set(-30, 4.6, -45);
+      pergolaRoof.castShadow = true;
+      retrofitGroup.add(pergolaRoof);
+
+      for (let x = -90; x <= 30; x += 12) {
+        addTree(x, -41.5, 6.8, 5.2, 0x10b981, retrofitGroup);
+      }
+
+      // 2. SEG-02 Surau Linkway Cantilevered Shade Fins + High-Albedo Cool Paving (SRI >= 29)
+      const finMat = new THREE.MeshStandardMaterial({ color: 0x14b8a6, roughness: 0.5 });
+      const surauCanopy = new THREE.Mesh(new THREE.BoxGeometry(5.0, 0.35, 95), finMat);
+      surauCanopy.position.set(-75, 4.4, 5);
+      surauCanopy.castShadow = true;
+      retrofitGroup.add(surauCanopy);
+
+      // 3. SEG-03 Shop-Row Retractable Awnings + High-SRI Cool Apron
+      const awning = new THREE.Mesh(new THREE.BoxGeometry(5.5, 0.35, 105), finMat);
+      awning.position.set(35, 4.8, 10);
+      awning.castShadow = true;
+      retrofitGroup.add(awning);
+
+      // 4. SEG-04 Central Spine Shade Sails (Partial coverage)
+      for (let x = -55; x <= 5; x += 30) {
+        const sail = new THREE.Mesh(
+          new THREE.BoxGeometry(16, 0.25, 5.5),
+          new THREE.MeshStandardMaterial({ color: 0xfbbf24, roughness: 0.5 })
+        );
+        sail.position.set(x, 5.0, 10);
+        sail.castShadow = true;
+        retrofitGroup.add(sail);
+      }
+
+      // 5. Controlled Show-Unit Cool Roof Retrofit (High SRI Reflective White Cap)
+      const coolRoof = new THREE.Mesh(
+        new THREE.BoxGeometry(13.2, 1.4, 16.6),
+        new THREE.MeshStandardMaterial({ color: 0xf8fafc, emissive: 0x38bdf8, emissiveIntensity: 0.15, roughness: 0.2 })
+      );
+      coolRoof.position.set(-60, 8.2, -28);
+      retrofitGroup.add(coolRoof);
+
+      retrofitGroup.visible = false;
+      scene.add(retrofitGroup);
+    }
+
+    // Animated Pedestrians along routes
+    function buildPedestrians() {
+      peopleGroup = new THREE.Group();
+      SEGMENTS.forEach((seg, idx) => {
+        const start = new THREE.Vector3(seg.path3D[0][0], 1.2, seg.path3D[0][1]);
+        const end = new THREE.Vector3(seg.path3D[seg.path3D.length - 1][0], 1.2, seg.path3D[seg.path3D.length - 1][1]);
+        for (let p = 0; p < 5; p++) {
+          const person = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.45, 0.45, 2.2, 8),
+            new THREE.MeshStandardMaterial({ color: 0xf8fafc, emissive: 0x38bdf8, emissiveIntensity: 0.3 })
+          );
+          person.userData = {
+            segmentId: seg.id,
+            start,
+            end,
+            t: (p / 5 + idx * 0.13) % 1,
+            speed: 0.0012 + (p % 3) * 0.0004
+          };
+          peopleGroup.add(person);
+        }
+      });
+      scene.add(peopleGroup);
+    }
+
+    // Create Floating HTML Pins anchored to 3D Segment Midpoints
+    function createHTMLMarkers() {
+      const container = document.getElementById('markers-container');
+      container.innerHTML = '';
+      SEGMENTS.forEach(seg => {
+        const midIdx = Math.floor(seg.path3D.length / 2);
+        const worldPos = new THREE.Vector3(seg.path3D[midIdx][0], 5.5, seg.path3D[midIdx][1]);
+
+        const el = document.createElement('div');
+        el.className = 'marker-3d glass rounded-lg px-2.5 py-1.5 text-[10px] mono shadow-lg border';
+        el.onclick = () => selectSegment(seg.id, true);
+        el.userData = { worldPos };
+
+        markerElements[seg.id] = el;
+        container.appendChild(el);
+      });
+    }
+
+    // Update Sun Position & Lighting from Solar Hour (7:00 to 19:00)
+    function updateSunPosition(hour) {
+      // Sun moves from East (+X) at 7:00 to Overhead at 13:00 to West (-X) at 19:00
+      const norm = (hour - 7) / 12; // 0.0 at 7am, 0.5 at 1pm, 0.75 at 4pm, 1.0 at 7pm
+      const angle = norm * Math.PI; // 0 to PI
+      const radius = 175;
+
+      const sunX = Math.cos(angle) * radius; // +175 (East) at 7am -> -123 (West) at 4pm
+      const sunY = Math.max(18, Math.sin(angle) * radius);
+      const sunZ = 45; // Slight tropical southern solar declination
+
+      sunLight.position.set(sunX, sunY, sunZ);
+
+      // Warm afternoon / golden hour tint
+      const elevRatio = Math.sin(angle);
+      if (hour >= 16.5 || hour <= 8.0) {
+        sunLight.color.setHex(0xfdba74);
+        sunLight.intensity = 1.05;
+      } else if (hour >= 11.5 && hour <= 15.0) {
+        sunLight.color.setHex(0xffffff);
+        sunLight.intensity = 1.5;
+      } else {
+        sunLight.color.setHex(0xfef08a);
+        sunLight.intensity = 1.3;
+      }
+
+      // Format Clock String
+      const hrs = Math.floor(hour);
+      const mins = Math.round((hour - hrs) * 60);
+      const ampm = hrs >= 12 ? 'PM' : 'AM';
+      const hr12 = hrs > 12 ? hrs - 12 : (hrs === 0 ? 12 : hrs);
+      const timeStr = `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')} (${hr12}:${String(mins).padStart(2, '0')} ${ampm})`;
+      document.getElementById('lbl-solar-time').textContent = timeStr;
+      document.getElementById('lbl-sun-elev').textContent = `Elev: ${Math.round(elevRatio * 82)}°`;
+    }
+
+    // =========================================================================
+    // 5. SIMULATION ENGINE & UI SYNCHRONIZATION
+    // =========================================================================
+    function evaluateSegment(seg) {
+      const baseData = state.stage === 'baseline' ? seg.baseline : seg.retrofit;
+      const ov = state.sensorOverrides[seg.id] || {};
+      const mod = getDiurnalModifiers(state.solarHour);
+
+      const Ta = (ov.Ta !== undefined ? ov.Ta : baseData.Ta) + mod.taOffset;
+      const RH = Math.max(45, Math.min(92, (ov.RH !== undefined ? ov.RH : baseData.RH) + mod.rhOffset));
+      const Tg = (ov.Tg !== undefined ? ov.Tg : baseData.Tg) + mod.tgOffset;
+      const shadePct = ov.shadePct !== undefined ? ov.shadePct : baseData.shadePct;
+
+      const { Tnw, WBGT } = computeOutdoorWBGT(Ta, RH, Tg);
+      const measuredScore = computeMeasuredScore(WBGT, shadePct, state.wbgtThreshold);
+      const gap = seg.proxyScore - measuredScore;
+      const absGap = Math.abs(gap);
+
+      let verdict = 'VERIFIED_ALIGNED';
+      let badgeClass = 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40';
+      let colorHex = 0x10b981;
+
+      if (absGap > 15) {
+        if (gap > 15) {
+          verdict = 'PROXY_UNRELIABLE (Over-Promised)';
+          badgeClass = 'bg-rose-500/20 text-rose-300 border-rose-500/40';
+          colorHex = 0xf43f5e;
+        } else {
+          verdict = 'PROXY_UNRELIABLE (Under-Credited)';
+          badgeClass = 'bg-sky-500/20 text-sky-300 border-sky-500/40';
+          colorHex = 0x38bdf8;
+        }
+      }
+
+      const walkableNow = WBGT <= state.wbgtThreshold;
+
+      return {
+        seg,
+        Ta, RH, Tg, shadePct,
+        Tnw, WBGT,
+        measuredScore,
+        gap,
+        absGap,
+        verdict,
+        badgeClass,
+        colorHex,
+        walkableNow,
+        footfall: baseData.footfall,
+        finding: baseData.finding,
+        action: baseData.action
+      };
+    }
+
+    function refreshSimulationUI() {
+      const evals = SEGMENTS.map(evaluateSegment);
+
+      // Update KPIs
+      let totalM = 0;
+      let walkableM = 0;
+      let overCount = 0;
+      let underCount = 0;
+
+      evals.forEach(ev => {
+        totalM += ev.seg.lengthM;
+        if (ev.walkableNow) walkableM += ev.seg.lengthM;
+        if (ev.gap > 15) overCount++;
+        if (ev.gap < -15) underCount++;
+
+        // Update 3D Corridor Color based on Layer View (Layer 1 Proxy vs Layer 2 Ground Truth)
+        const group = routeMeshes[ev.seg.id];
+        const targetColor = state.layerView === 'proxy'
+          ? (ev.seg.proxyScore >= 70 ? 0x3b82f6 : 0xf59e0b)
+          : (ev.walkableNow ? 0x10b981 : 0xf43f5e);
+
+        group.children.forEach(mesh => {
+          if (mesh.material && mesh.material.emissive) {
+            mesh.material.color.setHex(targetColor);
+            mesh.material.emissive.setHex(targetColor);
+            mesh.material.emissiveIntensity = ev.seg.id === state.selectedId ? 0.75 : 0.32;
+          }
+        });
+
+        // Update Floating 3D Marker HTML
+        const marker = markerElements[ev.seg.id];
+        if (marker) {
+          const isSel = ev.seg.id === state.selectedId;
+          const borderCol = state.layerView === 'proxy'
+            ? 'border-blue-500/60'
+            : (ev.walkableNow ? 'border-emerald-500/70' : 'border-rose-500/70');
+          marker.className = `marker-3d glass rounded-lg px-2 py-1 text-[10px] mono shadow-lg border ${borderCol} ${isSel ? 'ring-2 ring-white scale-105' : ''}`;
+
+          if (state.layerView === 'proxy') {
+            marker.innerHTML = `
+              <div class="flex items-center gap-1.5">
+                <span class="font-bold text-white">${ev.seg.id}</span>
+                <span class="px-1 rounded prov-proxy">Proxy: ${ev.seg.proxyScore}</span>
+              </div>
+              <div class="text-[9px] text-slate-300">${ev.seg.proxyMetricLabel}</div>
+            `;
+          } else {
+            const gapSign = ev.gap > 0 ? `+${ev.gap}` : ev.gap;
+            const flagDot = ev.absGap > 15 ? '&#9888;' : '&#10003;';
+            marker.innerHTML = `
+              <div class="flex items-center justify-between gap-2">
+                <span class="font-bold text-white">${ev.seg.id}</span>
+                <span class="${ev.walkableNow ? 'text-emerald-300' : 'text-rose-300'} font-bold">${ev.WBGT.toFixed(1)}&deg;C WBGT</span>
+              </div>
+              <div class="text-[9px] text-slate-300 flex justify-between gap-2">
+                <span>Meas: ${ev.measuredScore}</span>
+                <span class="${ev.absGap > 15 ? 'text-amber-300 font-bold' : 'text-emerald-300'}">${flagDot} Gap ${gapSign}</span>
+              </div>
+            `;
+          }
+        }
+      });
+
+      const walkablePct = ((walkableM / totalM) * 100).toFixed(1);
+      const kpiWalkEl = document.getElementById('kpi-walkable');
+      kpiWalkEl.textContent = `${walkablePct}%`;
+      kpiWalkEl.className = `text-xl font-bold mono ${walkablePct >= 70 ? 'text-emerald-400' : 'text-rose-400'}`;
+      document.getElementById('kpi-walkable-sub').textContent = `(${walkableM}m / ${totalM}m)`;
+
+      const totalFlags = overCount + underCount;
+      const kpiFlagsEl = document.getElementById('kpi-flags');
+      kpiFlagsEl.textContent = `${totalFlags} / 6`;
+      kpiFlagsEl.className = `text-xl font-bold mono ${totalFlags <= 1 ? 'text-emerald-400' : 'text-rose-400'}`;
+      document.getElementById('kpi-flags-sub').textContent = `${overCount} Over · ${underCount} Under`;
+
+      const usableHrs = state.stage === 'baseline' ? '6.5 hrs' : '9.5 hrs';
+      const exileHrs = state.stage === 'baseline' ? '5.5h thermal exile' : '2.5h peak midday';
+      document.getElementById('kpi-hours').textContent = usableHrs;
+      document.getElementById('kpi-exile').textContent = exileHrs;
+
+      // Render Left-Side Segment Ledger Cards
+      const listEl = document.getElementById('segment-cards-list');
+      listEl.innerHTML = evals.map(ev => {
+        const isSel = ev.seg.id === state.selectedId;
+        const gapStr = ev.gap > 0 ? `+${ev.gap}` : `${ev.gap}`;
+        return `
+          <div onclick="selectSegment('${ev.seg.id}', true)"
+               class="p-2.5 rounded-lg border cursor-pointer transition ${isSel ? 'bg-slate-800/95 border-emerald-400 shadow-md' : 'bg-slate-900/70 border-slate-800 hover:border-slate-700'}">
+            <div class="flex items-center justify-between gap-1">
+              <div class="flex items-center gap-1.5">
+                <span class="text-[10px] font-bold mono px-1.5 py-0.5 rounded bg-slate-950 text-white">${ev.seg.id}</span>
+                <span class="text-xs font-semibold text-white truncate">${ev.seg.name}</span>
+              </div>
+              <span class="text-[9px] font-bold mono px-1.5 py-0.5 rounded border ${ev.badgeClass}">
+                ${ev.absGap > 15 ? (ev.gap > 0 ? 'FLAG +' + ev.gap : 'UNDER ' + ev.gap) : 'VERIFIED'}
+              </span>
+            </div>
+            <div class="grid grid-cols-4 gap-1 mt-2 pt-1.5 border-t border-slate-800/80 text-[10px] mono text-center">
+              <div>
+                <span class="text-slate-500 block text-[8px]">PROXY</span>
+                <span class="text-blue-300 font-bold">${ev.seg.proxyScore}</span>
+              </div>
+              <div>
+                <span class="text-slate-500 block text-[8px]">MEAS</span>
+                <span class="text-emerald-300 font-bold">${ev.measuredScore}</span>
+              </div>
+              <div>
+                <span class="text-slate-500 block text-[8px]">GAP</span>
+                <span class="${ev.absGap > 15 ? 'text-rose-400' : 'text-slate-300'} font-bold">${gapStr}</span>
+              </div>
+              <div>
+                <span class="text-slate-500 block text-[8px]">WBGT</span>
+                <span class="${ev.walkableNow ? 'text-emerald-300' : 'text-rose-400'} font-bold">${ev.WBGT.toFixed(1)}&deg;</span>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      // Update Right-Side Selected Segment Inspector
+      const selEval = evals.find(e => e.seg.id === state.selectedId) || evals[0];
+      updateSelectedInspector(selEval);
+    }
+
+    function updateSelectedInspector(ev) {
+      document.getElementById('sel-id').textContent = ev.seg.id;
+      const badge = document.getElementById('sel-verdict-badge');
+      badge.textContent = ev.verdict;
+      badge.className = `text-[10px] font-bold mono px-2 py-0.5 rounded border ${ev.badgeClass}`;
+
+      document.getElementById('sel-name').textContent = ev.seg.name;
+      document.getElementById('sel-route-meta').textContent = ev.seg.routeMeta;
+
+      document.getElementById('sel-proxy-score').textContent = ev.seg.proxyScore;
+      document.getElementById('sel-proxy-label').textContent = ev.seg.proxyMetricLabel;
+      document.getElementById('sel-meas-score').textContent = ev.measuredScore;
+      document.getElementById('sel-meas-label').textContent = `Shade ${ev.shadePct}% · ${ev.WBGT.toFixed(1)}°C`;
+
+      const gapEl = document.getElementById('sel-gap-score');
+      gapEl.textContent = ev.gap > 0 ? `+${ev.gap}` : `${ev.gap}`;
+      gapEl.className = `text-lg font-bold mono mt-0.5 ${ev.absGap > 15 ? 'text-rose-400' : 'text-emerald-400'}`;
+
+      document.getElementById('val-tnw').textContent = `${ev.Tnw.toFixed(1)} °C`;
+      const wbgtEl = document.getElementById('val-wbgt');
+      wbgtEl.textContent = `${ev.WBGT.toFixed(1)} °C`;
+      wbgtEl.className = `text-base font-bold mono ${ev.walkableNow ? 'text-emerald-400' : 'text-rose-400'}`;
+
+      const statusEl = document.getElementById('val-wbgt-status');
+      statusEl.textContent = ev.walkableNow
+        ? `WALKABLE (≤ ${state.wbgtThreshold.toFixed(1)}°C)`
+        : `EXCEEDS ${state.wbgtThreshold.toFixed(1)}°C`;
+      statusEl.className = `text-[9px] font-bold mono ${ev.walkableNow ? 'text-emerald-400' : 'text-rose-400'}`;
+
+      document.getElementById('val-footfall').textContent = `${ev.footfall} / hr`;
+
+      // Sync Sliders
+      document.getElementById('inp-ta').value = ev.Ta.toFixed(1);
+      document.getElementById('lbl-ta').textContent = `${ev.Ta.toFixed(1)} °C`;
+
+      document.getElementById('inp-rh').value = Math.round(ev.RH);
+      document.getElementById('lbl-rh').textContent = `${Math.round(ev.RH)} %`;
+
+      document.getElementById('inp-tg').value = ev.Tg.toFixed(1);
+      document.getElementById('lbl-tg').textContent = `${ev.Tg.toFixed(1)} °C`;
+
+      document.getElementById('inp-shade').value = Math.round(ev.shadePct);
+      document.getElementById('lbl-shade').textContent = `${Math.round(ev.shadePct)} %`;
+
+      document.getElementById('sel-finding').textContent = ev.finding;
+      document.getElementById('sel-action').textContent = ev.action;
+    }
+
+    // =========================================================================
+    // 6. USER INTERACTIONS & CONTROLS
+    // =========================================================================
+    function selectSegment(segId, fly = false) {
+      state.selectedId = segId;
+      refreshSimulationUI();
+      if (fly) focusSelectedSegment();
+    }
+
+    function focusSelectedSegment() {
+      const seg = SEGMENTS.find(s => s.id === state.selectedId);
+      if (!seg) return;
+      const midIdx = Math.floor(seg.path3D.length / 2);
+      const tx = seg.path3D[midIdx][0];
+      const tz = seg.path3D[midIdx][1];
+      smoothCameraMove(
+        new THREE.Vector3(tx - 28, 38, tz + 52),
+        new THREE.Vector3(tx, 2, tz)
+      );
+      setCaption(`Inspecting ${seg.id} (${seg.name}): Proxy ${seg.proxyScore} vs. Ground-Truth WBGT sensor nodes.`);
+    }
+
+    function flyCamera(preset) {
+      if (preset === 'overview') {
+        smoothCameraMove(new THREE.Vector3(-40, 115, 165), new THREE.Vector3(-5, 0, 5));
+        setCaption('Aerial Overview: Full Precinct Ara landed township (6 audited walking routes, 1,170m total).');
+      } else if (preset === 'street') {
+        smoothCameraMove(new THREE.Vector3(-88, 7, -43), new THREE.Vector3(10, 3, -45));
+        setCaption('Pedestrian Eye-Level on SEG-01 School Walk: Notice how baseline road-median trees miss the footpath.');
+      } else if (preset === 'top') {
+        smoothCameraMove(new THREE.Vector3(-5, 210, 12), new THREE.Vector3(-5, 0, 5));
+        setCaption('GIS Plan View: Compare Layer 1 GIS Canopy Proxy against Layer 2 Ground-Truth Footpath Shade.');
+      }
+    }
+
+    function smoothCameraMove(targetPos, targetLook) {
+      const startPos = camera.position.clone();
+      const startLook = controls.target.clone();
+      let progress = 0;
+      function step() {
+        progress += 0.05;
+        if (progress < 1) {
+          camera.position.lerpVectors(startPos, targetPos, progress);
+          controls.target.lerpVectors(startLook, targetLook, progress);
+          requestAnimationFrame(step);
+        } else {
+          camera.position.copy(targetPos);
+          controls.target.copy(targetLook);
+        }
+      }
+      step();
+    }
+
+    function setLayerView(mode) {
+      state.layerView = mode;
+      const b1 = document.getElementById('btn-layer-1');
+      const b2 = document.getElementById('btn-layer-2');
+      if (mode === 'proxy') {
+        b1.className = 'px-2.5 py-1 rounded-md font-semibold bg-blue-500 text-slate-950 transition';
+        b2.className = 'px-2.5 py-1 rounded-md font-medium text-slate-400 hover:text-white transition';
+        setCaption('Layer 1 (Design Proxy Spine): Shows fast GIS canopy %, SRI specs & ENVI-met models before ground-truth verification.');
+      } else {
+        b1.className = 'px-2.5 py-1 rounded-md font-medium text-slate-400 hover:text-white transition';
+        b2.className = 'px-2.5 py-1 rounded-md font-semibold bg-emerald-500 text-slate-950 transition';
+        setCaption('Layer 2 (Ground-Truth Loop): Pairs every design proxy with 20 route shade points & ISO 7243 outdoor WBGT.');
+      }
+      refreshSimulationUI();
+    }
+
+    function setPilotStage(stage) {
+      state.stage = stage;
+      state.sensorOverrides = {};
+      retrofitGroup.visible = (stage === 'retrofit');
+
+      const bBase = document.getElementById('btn-stage-baseline');
+      const bRet  = document.getElementById('btn-stage-retrofit');
+      if (stage === 'baseline') {
+        bBase.className = 'px-2.5 py-1 rounded-md font-semibold bg-rose-500 text-white transition';
+        bRet.className  = 'px-2.5 py-1 rounded-md font-medium text-slate-400 hover:text-white transition';
+        setCaption('Weeks 1–2 Baseline Audit: 33.3% walkable at 4pm. 4 segments over-promised, 1 verified aligned (SEG-05), 1 under-credited (SEG-06).');
+      } else {
+        bBase.className = 'px-2.5 py-1 rounded-md font-medium text-slate-400 hover:text-white transition';
+        bRet.className  = 'px-2.5 py-1 rounded-md font-semibold bg-emerald-500 text-slate-950 transition';
+        setCaption('Weeks 9–12 Post-Retrofit Verification: 3D pergolas, tree infill & cool roofs deployed. 4pm walkability rises to 83.3% (SEG-04 honestly kept at 28.4°C).');
+      }
+      refreshSimulationUI();
+    }
+
+    function onHourSliderChange(val) {
+      state.solarHour = parseFloat(val);
+      state.sensorOverrides = {};
+      updateSunPosition(state.solarHour);
+      refreshSimulationUI();
+    }
+
+    function toggleSunPlay() {
+      state.sunPlaying = !state.sunPlaying;
+      document.getElementById('btn-play-sun').innerHTML = state.sunPlaying ? '&#10074;&#10074;' : '&#9654;';
+    }
+
+    function onSensorSliderChange() {
+      const mod = getDiurnalModifiers(state.solarHour);
+      const Ta = parseFloat(document.getElementById('inp-ta').value) - mod.taOffset;
+      const RH = parseFloat(document.getElementById('inp-rh').value) - mod.rhOffset;
+      const Tg = parseFloat(document.getElementById('inp-tg').value) - mod.tgOffset;
+      const shadePct = parseFloat(document.getElementById('inp-shade').value);
+
+      state.sensorOverrides[state.selectedId] = { Ta, RH, Tg, shadePct };
+      refreshSimulationUI();
+    }
+
+    function resetSelectedSegmentSensors() {
+      delete state.sensorOverrides[state.selectedId];
+      refreshSimulationUI();
+    }
+
+    function onThresholdChange() {
+      state.wbgtThreshold = parseFloat(document.getElementById('inp-thresh').value);
+      document.getElementById('lbl-thresh').textContent = `${state.wbgtThreshold.toFixed(1)} °C`;
+      refreshSimulationUI();
+    }
+
+    function switchRightTab(tab) {
+      ['physics', 'montecarlo', 'framework'].forEach(t => {
+        document.getElementById(`panel-${t}`).classList.toggle('hidden', t !== tab);
+        const btn = document.getElementById(`tab-btn-${t}`);
+        if (t === tab) {
+          btn.className = 'py-1.5 rounded-lg bg-emerald-500 text-slate-950 transition';
+        } else {
+          btn.className = 'py-1.5 rounded-lg text-slate-300 hover:bg-slate-800/70 transition';
+        }
+      });
+    }
+
+    function setCaption(text, badgeText = '3D INTERACTIVE') {
+      document.getElementById('caption-text').textContent = text;
+      document.getElementById('caption-badge').textContent = badgeText;
+    }
+
+    // =========================================================================
+    // 7. SEEDED 10,000-DRAW MONTE CARLO FINANCIAL ENGINE (§8 & §10)
+    // =========================================================================
+    function mulberry32(a) {
+      return function() {
+        let t = a += 0x6D2B79F5;
+        t = Math.imul(t ^ t >>> 15, t | 1);
+        t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+        return ((t ^ t >>> 14) >>> 0) / 4294967296;
+      };
+    }
+
+    function sampleTriangular(rng, min, mode, max) {
+      const u = rng();
+      const c = (mode - min) / (max - min);
+      if (u < c) {
+        return min + Math.sqrt(u * (max - min) * (mode - min));
+      } else {
+        return max - Math.sqrt((1 - u) * (max - min) * (max - mode));
+      }
+    }
+
+    function runMonteCarlo() {
+      const tariffSen = parseFloat(document.getElementById('inp-mc-tariff').value);
+      const alphaMode = parseFloat(document.getElementById('inp-mc-alpha').value);
+      const dtMode    = parseFloat(document.getElementById('inp-mc-dt').value);
+      const homes     = parseInt(document.getElementById('inp-mc-homes').value, 10);
+
+      document.getElementById('lbl-mc-tariff').textContent = `${tariffSen.toFixed(2)} sen`;
+      document.getElementById('lbl-mc-alpha').textContent  = `${alphaMode.toFixed(3)} (${(alphaMode * 100).toFixed(1)}%)`;
+      document.getElementById('lbl-mc-dt').textContent     = `${dtMode.toFixed(1)} °C`;
+      document.getElementById('lbl-mc-homes').textContent  = homes.toLocaleString();
+
+      const rng = mulberry32(20261021);
+      const draws = 10000;
+      const results = new Float64Array(draws);
+
+      const alphaMin = Math.max(0.02, alphaMode - 0.03);
+      const alphaMax = Math.min(0.11, alphaMode + 0.03);
+      const dtMin    = Math.max(0.3, dtMode - 0.7);
+      const dtMax    = dtMode + 0.8;
+
+      for (let i = 0; i < draws; i++) {
+        // Annual household cooling baseline kWh (Terrace house ~29% cooling share: 2,400 - 3,600 kWh/yr)
+        const baseCoolingKwh = sampleTriangular(rng, 2350, 2950, 3650);
+        const alpha = sampleTriangular(rng, alphaMin, alphaMode, alphaMax);
+        const dt    = sampleTriangular(rng, dtMin, dtMode, dtMax);
+        const frac  = Math.max(0, Math.min(0.30, alpha * dt));
+        const kwhSaved = baseCoolingKwh * frac;
+        results[i] = kwhSaved * (tariffSen / 100.0);
+      }
+
+      results.sort();
+      const p10 = results[Math.floor(draws * 0.10)];
+      const p50 = results[Math.floor(draws * 0.50)];
+      const p90 = results[Math.floor(draws * 0.90)];
+
+      document.getElementById('mc-p10-hh').textContent  = `RM ${Math.round(p10)}`;
+      document.getElementById('mc-p50-hh').textContent  = `RM ${Math.round(p50)}`;
+      document.getElementById('mc-p90-hh').textContent  = `RM ${Math.round(p90)}`;
+
+      document.getElementById('mc-p10-twp').textContent = `RM ${((p10 * homes) / 1e6).toFixed(2)}M/yr`;
+      document.getElementById('mc-p50-twp').textContent = `RM ${((p50 * homes) / 1e6).toFixed(2)}M/yr`;
+      document.getElementById('mc-p90-twp').textContent = `RM ${((p90 * homes) / 1e6).toFixed(2)}M/yr`;
+
+      document.getElementById('kpi-savings').textContent = `RM ${Math.round(p10)}–${Math.round(p90)}`;
+
+      // Render 16-bin Histogram
+      const bins = 16;
+      const minVal = results[0];
+      const maxVal = results[draws - 1];
+      const step = (maxVal - minVal) / bins || 1;
+      const counts = new Array(bins).fill(0);
+      for (let i = 0; i < draws; i++) {
+        const idx = Math.min(bins - 1, Math.floor((results[i] - minVal) / step));
+        counts[idx]++;
+      }
+      const maxCount = Math.max(...counts, 1);
+      const histEl = document.getElementById('mc-histogram');
+      histEl.innerHTML = counts.map((c, idx) => {
+        const binMid = minVal + (idx + 0.5) * step;
+        const hPct = Math.max(8, Math.round((c / maxCount) * 100));
+        const col = (binMid >= p10 && binMid <= p90) ? 'bg-emerald-500' : 'bg-slate-700';
+        return `<div class="flex-1 ${col} rounded-t transition-all" style="height:${hPct}%" title="RM ${Math.round(binMid)}/yr (${c} draws)"></div>`;
+      }).join('');
+    }
+
+    // =========================================================================
+    // 8. 2.5-MINUTE (10-SCENE) AUTOMATED 3D STORYBOARD TOUR
+    // =========================================================================
+    const TOUR_SCENES = [
+      {
+        title: '01/10 · Brochure vs 4PM',
+        action: () => { setPilotStage('baseline'); setLayerView('proxy'); onHourSliderChange(16.0); flyCamera('overview'); },
+        text: '0:00–0:15 · Every township promises shade. On Layer 1 GIS proxies, Precinct Ara looks compliant—until we check 4:00 PM reality.'
+      },
+      {
+        title: '02/10 · Thermal Exile',
+        action: () => { setLayerView('ground'); onHourSliderChange(14.5); selectSegment('SEG-01', true); },
+        text: '0:15–0:30 · Thermal Exile: Between 12pm and 5pm, exposed walkways hit >30.6°C WBGT, pushing families indoors onto a 45.4 sen/kWh AC bill.'
+      },
+      {
+        title: '03/10 · Point-Chasing Trap',
+        action: () => { onHourSliderChange(16.0); switchRightTab('framework'); flyCamera('top'); },
+        text: '0:30–0:45 · Voluntary GBI Township (4 credits) & LCCF (1/41 sub-criteria) score design inputs, not afternoon pedestrian outcomes.'
+      },
+      {
+        title: '04/10 · Two-Layer Loop',
+        action: () => { switchRightTab('physics'); setLayerView('ground'); flyCamera('street'); },
+        text: '0:45–1:00 · Look at SEG-01 School Walk at eye level: trees sit in the road divider (right), while the school footpath (left) bakes in full sun.'
+      },
+      {
+        title: '05/10 · ISO 7243 WBGT',
+        action: () => { selectSegment('SEG-02', true); },
+        text: '1:00–1:15 · Handheld WBGT checks on SEG-02 Surau Linkway reveal a +44 gap: accessible within 400m on GP024 maps, unwalkable at Asar.'
+      },
+      {
+        title: '06/10 · Honest Ledger',
+        action: () => { selectSegment('SEG-06', true); },
+        text: '1:15–1:30 · Honesty works both ways: SEG-06 Cul-de-Sac has only 12% GIS trees, but N–S house eaves shade the street (Under-credited Gap -21).'
+      },
+      {
+        title: '07/10 · 12-Week Retrofit',
+        action: () => { setPilotStage('retrofit'); selectSegment('SEG-01', true); },
+        text: '1:30–1:45 · Weeks 3–8 Surgical Retrofit: Tree budget reallocated from SEG-06 to SEG-01 pergola & tree infill. 4pm walkability jumps 33.3% → 83.3%.'
+      },
+      {
+        title: '08/10 · Control Benchmark',
+        action: () => { selectSegment('SEG-05', true); },
+        text: '1:45–2:00 · SEG-05 Linear Park Rain-Tree Walk (Gap +3) proves continuous Samanea saman canopy works and anchors ESG & GP024 disclosures.'
+      },
+      {
+        title: '09/10 · Monte Carlo RM',
+        action: () => { switchRightTab('montecarlo'); flyCamera('overview'); },
+        text: '2:00–2:15 · 10,000-Draw Monte Carlo: RM 86–192/household/yr avoided cooling cost (ASSUMED 0.06/°C exposed), plus +3.0 usable outdoor hours/day.'
+      },
+      {
+        title: '10/10 · §15 Pilot Ask',
+        action: () => { switchRightTab('framework'); flyCamera('overview'); },
+        text: '2:15–2:30 · Admitting what only field work can answer (§15): 1 Neighbourhood · 12 Weeks · RM 80k–150k to close the heat accountability gap.'
+      }
+    ];
+
+    function toggleGuidedTour() {
+      if (state.tourActive) {
+        stopGuidedTour();
+      } else {
+        state.tourActive = true;
+        state.tourStep = 0;
+        document.getElementById('lbl-tour-btn').textContent = 'Stop Tour';
+        document.getElementById('tour-dot').className = 'w-2 h-2 rounded-full bg-rose-400 animate-ping';
+        runTourStep();
+        state.tourTimer = setInterval(() => {
+          state.tourStep = (state.tourStep + 1) % TOUR_SCENES.length;
+          runTourStep();
+        }, 9000);
+      }
+    }
+
+    function stopGuidedTour() {
+      state.tourActive = false;
+      if (state.tourTimer) clearInterval(state.tourTimer);
+      document.getElementById('lbl-tour-btn').textContent = '2.5m Guided Tour';
+      document.getElementById('tour-dot').className = 'w-2 h-2 rounded-full bg-amber-400';
+      setCaption('Guided tour paused. Click any 3D corridor or drag sliders to explore freely.');
+    }
+
+    function runTourStep() {
+      const s = TOUR_SCENES[state.tourStep];
+      s.action();
+      setCaption(s.text, s.title);
+    }
+
+    // =========================================================================
+    // 9. RENDER LOOP & 3D-TO-2D SCREEN PROJECTION
+    // =========================================================================
+    function onWindowResize() {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    function updateMarkersProjection() {
+      const halfW = window.innerWidth / 2;
+      const halfH = window.innerHeight / 2;
+
+      SEGMENTS.forEach(seg => {
+        const el = markerElements[seg.id];
+        if (!el) return;
+        const pos = el.userData.worldPos.clone();
+        pos.project(camera);
+
+        if (pos.z > 1) {
+          el.style.display = 'none';
+        } else {
+          const x = (pos.x * halfW) + halfW;
+          const y = -(pos.y * halfH) + halfH;
+          el.style.display = 'block';
+          el.style.left = `${x}px`;
+          el.style.top = `${y}px`;
+        }
+      });
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+
+      // Optional Diurnal Sun Animation
+      if (state.sunPlaying) {
+        state.solarHour += 0.015;
+        if (state.solarHour > 19.0) state.solarHour = 7.0;
+        document.getElementById('slider-hour').value = state.solarHour;
+        updateSunPosition(state.solarHour);
+        refreshSimulationUI();
+      }
+
+      // Animate Pedestrians along paths (faster/more visible when route is walkable)
+      if (peopleGroup) {
+        peopleGroup.children.forEach(p => {
+          p.userData.t = (p.userData.t + p.userData.speed) % 1;
+          p.position.lerpVectors(p.userData.start, p.userData.end, p.userData.t);
+        });
+      }
+
+      controls.update();
+      renderer.render(scene, camera);
+      updateMarkersProjection();
+    }
+
+    // Boot Simulator
+    window.addEventListener('DOMContentLoaded', () => {
+      runMonteCarlo();
+      init3D();
+    });
+  </script>
+</body>
+</html>
