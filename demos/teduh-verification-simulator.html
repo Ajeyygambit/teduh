@@ -1,0 +1,1395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TEDUH — Township Heat Performance Verification Layer</title>
+  <style>
+    :root {
+      --bg: #0b1016;
+      --panel: #131b24;
+      --panel-alt: #192430;
+      --border: #263545;
+      --text: #e6edf3;
+      --muted: #8b9bb0;
+      --accent: #38bdf8;
+      --green: #10b981;
+      --amber: #f59e0b;
+      --red: #ef4444;
+      --purple: #a855f7;
+      --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --mono: 'JetBrains Mono', 'Fira Code', monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      line-height: 1.5;
+      padding-bottom: 60px;
+    }
+
+    /* Top §9 Guardrail Bar */
+    .guardrail-bar {
+      background: #16202c;
+      border-bottom: 1px solid var(--border);
+      padding: 8px 24px;
+      font-size: 11.5px;
+      color: var(--muted);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .guardrail-bar strong { color: var(--amber); }
+
+    header {
+      padding: 18px 24px;
+      border-bottom: 1px solid var(--border);
+      background: linear-gradient(180deg, #131d28 0%, #0b1016 100%);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+    .brand h1 {
+      font-size: 24px;
+      letter-spacing: -0.5px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .brand h1 span.tag {
+      font-size: 11px;
+      background: rgba(56, 189, 248, 0.15);
+      color: var(--accent);
+      border: 1px solid rgba(56, 189, 248, 0.4);
+      padding: 2px 8px;
+      border-radius: 99px;
+      font-weight: 600;
+    }
+    .brand p {
+      color: var(--muted);
+      font-size: 13px;
+      margin-top: 3px;
+    }
+    .controls-top {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .phase-toggle {
+      display: inline-flex;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .phase-btn {
+      background: transparent;
+      color: var(--muted);
+      border: none;
+      padding: 8px 14px;
+      font-size: 12.5px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+    .phase-btn.active {
+      background: var(--accent);
+      color: #07121b;
+    }
+    .reset-btn {
+      background: var(--panel-alt);
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .reset-btn:hover { border-color: var(--accent); }
+
+    /* Provenance Badges */
+    .prov {
+      display: inline-block;
+      font-family: var(--mono);
+      font-size: 10px;
+      font-weight: 700;
+      padding: 1px 6px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+      vertical-align: middle;
+    }
+    .prov-measured { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.4); }
+    .prov-proxy { background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.4); }
+    .prov-modelled { background: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.4); }
+    .prov-assumed { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4); }
+
+    /* Container & Layout */
+    .container {
+      max-width: 1440px;
+      margin: 0 auto;
+      padding: 18px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    /* 12-Week Pilot Stepper */
+    .stepper {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+    }
+    @media (max-width: 850px) {
+      .stepper { grid-template-columns: repeat(2, 1fr); }
+    }
+    .step-box {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 11px 14px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: 0.15s;
+    }
+    .step-box:hover { border-color: var(--accent); }
+    .step-box.active-step {
+      border-color: var(--accent);
+      background: rgba(56, 189, 248, 0.08);
+    }
+    .step-box .wk {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--accent);
+      font-weight: 700;
+    }
+    .step-box .st-title {
+      font-weight: 700;
+      margin: 2px 0;
+      color: var(--text);
+    }
+    .step-box .st-desc {
+      color: var(--muted);
+      font-size: 11.5px;
+    }
+
+    /* Headline KPI Strip */
+    .kpi-strip {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 14px;
+    }
+    .kpi-card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 16px;
+    }
+    .kpi-card .label {
+      font-size: 11.5px;
+      color: var(--muted);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .kpi-card .val {
+      font-size: 25px;
+      font-weight: 700;
+      margin: 6px 0 3px;
+      font-family: var(--mono);
+    }
+    .kpi-card .sub {
+      font-size: 11.5px;
+      color: var(--muted);
+    }
+
+    /* Two-column Workspace */
+    .workspace {
+      display: grid;
+      grid-template-columns: 1.38fr 1fr;
+      gap: 18px;
+    }
+    @media (max-width: 1120px) {
+      .workspace { grid-template-columns: 1fr; }
+    }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px 18px;
+    }
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border);
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .card-title {
+      font-size: 14.5px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* Precinct Map SVG */
+    .map-box {
+      background: #0d141c;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 14px;
+    }
+    svg.route-map {
+      width: 100%;
+      height: 225px;
+      display: block;
+    }
+    .map-seg {
+      stroke-width: 8;
+      stroke-linecap: round;
+      cursor: pointer;
+      transition: stroke-width 0.18s, opacity 0.18s;
+    }
+    .map-seg:hover { stroke-width: 11; }
+    .map-seg.active-seg {
+      stroke-width: 13;
+      filter: drop-shadow(0 0 8px rgba(56, 189, 248, 0.65));
+    }
+
+    /* Ledger Table */
+    .ledger-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12.5px;
+    }
+    .ledger-table th {
+      text-align: left;
+      padding: 9px 7px;
+      color: var(--muted);
+      font-weight: 600;
+      border-bottom: 1px solid var(--border);
+      font-size: 10.5px;
+      text-transform: uppercase;
+    }
+    .ledger-table td {
+      padding: 9px 7px;
+      border-bottom: 1px solid rgba(38, 53, 69, 0.65);
+      vertical-align: middle;
+    }
+    .ledger-table tr.seg-row {
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .ledger-table tr.seg-row:hover {
+      background: rgba(56, 189, 248, 0.06);
+    }
+    .ledger-table tr.seg-row.selected {
+      background: rgba(56, 189, 248, 0.13);
+      outline: 1px solid var(--accent);
+    }
+    .flag-badge {
+      display: inline-block;
+      font-family: var(--mono);
+      font-size: 10.5px;
+      font-weight: 700;
+      padding: 3px 7px;
+      border-radius: 4px;
+      white-space: nowrap;
+    }
+    .flag-unreliable {
+      background: rgba(239, 68, 68, 0.16);
+      color: #f87171;
+      border: 1px solid rgba(239, 68, 68, 0.45);
+    }
+    .flag-verified {
+      background: rgba(16, 185, 129, 0.16);
+      color: #34d399;
+      border: 1px solid rgba(16, 185, 129, 0.45);
+    }
+    .flag-under {
+      background: rgba(245, 158, 11, 0.16);
+      color: #fbbf24;
+      border: 1px solid rgba(245, 158, 11, 0.45);
+    }
+
+    /* Sliders & Controls */
+    .slider-group { margin-bottom: 11px; }
+    .slider-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      margin-bottom: 3px;
+    }
+    .slider-label span.val-mono {
+      font-family: var(--mono);
+      font-weight: 600;
+      color: var(--accent);
+    }
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+    .wbgt-box {
+      background: var(--panel-alt);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px;
+      margin-top: 10px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      text-align: center;
+    }
+    .wbgt-cell .t-label { font-size: 10.5px; color: var(--muted); }
+    .wbgt-cell .t-val { font-size: 17px; font-weight: 700; font-family: var(--mono); margin-top: 2px; }
+
+    /* Diurnal Thermal Exile Bar */
+    .diurnal-grid {
+      display: grid;
+      grid-template-columns: repeat(15, 1fr);
+      gap: 4px;
+      margin-top: 10px;
+    }
+    @media (max-width: 700px) {
+      .diurnal-grid { grid-template-columns: repeat(5, 1fr); }
+    }
+    .hour-bar {
+      background: var(--panel-alt);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 6px 2px;
+      text-align: center;
+      font-family: var(--mono);
+      font-size: 10px;
+    }
+    .hour-bar.exile {
+      background: rgba(239, 68, 68, 0.22);
+      border-color: rgba(239, 68, 68, 0.55);
+      color: #fca5a5;
+    }
+    .hour-bar.usable {
+      background: rgba(16, 185, 129, 0.18);
+      border-color: rgba(16, 185, 129, 0.45);
+      color: #6ee7b7;
+    }
+
+    /* Monte Carlo Results & Histogram */
+    .mc-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin: 12px 0;
+    }
+    .mc-box {
+      background: var(--panel-alt);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px;
+      text-align: center;
+    }
+    .mc-box .pct { font-size: 10.5px; color: var(--muted); text-transform: uppercase; font-weight: 700; }
+    .mc-box .rm { font-size: 18px; font-weight: 700; font-family: var(--mono); margin: 3px 0; color: var(--green); }
+    .mc-box .twp { font-size: 10.5px; color: var(--muted); font-family: var(--mono); }
+
+    .hist-bars {
+      display: flex;
+      align-items: flex-end;
+      height: 55px;
+      gap: 3px;
+      padding: 6px 8px;
+      background: #0d141c;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      margin-bottom: 8px;
+    }
+    .hist-col {
+      flex: 1;
+      background: rgba(56, 189, 248, 0.45);
+      border-radius: 2px 2px 0 0;
+      transition: height 0.2s;
+    }
+
+    /* Stakeholder & Guardrail Tabs */
+    .tab-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+    .tab-btn {
+      background: var(--panel-alt);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      padding: 7px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .tab-btn.active {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: rgba(56, 189, 248, 0.12);
+    }
+    .stakeholder-panel {
+      background: var(--panel-alt);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px;
+      font-size: 13px;
+    }
+    .formula-note {
+      font-family: var(--mono);
+      font-size: 10.5px;
+      color: var(--muted);
+      background: #0d141c;
+      padding: 7px 10px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      margin-top: 8px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Hard Constraint §9 Guardrail Bar -->
+  <div class="guardrail-bar">
+    <div>
+      <strong>§9 INTEGRITY GUARDRAILS ACTIVE:</strong> GBI Township &amp; LCCF are <u>voluntary</u>; GP024 is a <u>planning guideline</u> (not statute); Residential code = <u>MS 2680</u> (never MS 1525); Smart City = <u>MS ISO 37122:2021</u>; LCCF surface = <u>SRI &ge; 29</u>. No affiliation with Sime Darby Property, GBI, MGTC or PLANMalaysia.
+    </div>
+    <div style="display:flex; gap:6px;">
+      <span class="prov prov-proxy">PROXY</span>
+      <span class="prov prov-measured">MEASURED</span>
+      <span class="prov prov-modelled">MODELLED</span>
+      <span class="prov prov-assumed">ASSUMED</span>
+    </div>
+  </div>
+
+  <header>
+    <div class="brand">
+      <h1>
+        TEDUH
+        <span class="tag">VERIFICATION LAYER PROTOTYPE</span>
+      </h1>
+      <p>Every township promises shade. None of them can prove it. &mdash; Precinct Ara Simulated Pilot (Not Field Data per §9.10)</p>
+    </div>
+    <div class="controls-top">
+      <div class="phase-toggle">
+        <button class="phase-btn active" id="btnPhaseBaseline" onclick="setPilotPhase('baseline')">
+          Weeks 1&ndash;2: Baseline Audit
+        </button>
+        <button class="phase-btn" id="btnPhaseVerified" onclick="setPilotPhase('verified')">
+          Weeks 9&ndash;12: Post-Retrofit Verification
+        </button>
+      </div>
+      <button class="reset-btn" onclick="resetCurrentPhase()">Reset Sliders</button>
+    </div>
+  </header>
+
+  <div class="container">
+
+    <!-- 12-Week Pilot Interactive Workflow Stepper (§6) -->
+    <div class="stepper">
+      <div class="step-box active-step" id="step1" onclick="setPilotPhase('baseline')">
+        <div class="wk">STEP 1 &middot; WEEKS 1&ndash;2</div>
+        <div class="st-title">Baseline Ground-Truth</div>
+        <div class="st-desc">20 shade-pts (8am/1pm/5pm) + 4&ndash;6pm foot traffic + 30 IR roof checks.</div>
+      </div>
+      <div class="step-box" id="step2" onclick="setPilotPhase('baseline')">
+        <div class="wk">STEP 2 &middot; WEEK 2</div>
+        <div class="st-title">Diagnose &amp; Flag Gaps</div>
+        <div class="st-desc">Flag segments where |Proxy &minus; Measured| &gt; 15 as PROXY_UNRELIABLE.</div>
+      </div>
+      <div class="step-box" id="step3" onclick="setPilotPhase('verified')">
+        <div class="wk">STEP 3 &middot; WEEKS 3&ndash;8</div>
+        <div class="st-title">Surgical Intervention</div>
+        <div class="st-desc">Reallocate existing maintenance budget to worst 200m + 1 show-unit roof test.</div>
+      </div>
+      <div class="step-box" id="step4" onclick="setPilotPhase('verified')">
+        <div class="wk">STEP 4 &middot; WEEKS 9&ndash;12</div>
+        <div class="st-title">Re-Measure &amp; Publish Ledger</div>
+        <div class="st-desc">Re-audit identical points &amp; publish delta — including where proxies failed.</div>
+      </div>
+    </div>
+
+    <!-- Top KPI Strip -->
+    <div class="kpi-strip">
+      <div class="kpi-card">
+        <div class="label">
+          <span>Usable Outdoor Hours / Day</span>
+          <span class="prov prov-measured">MEASURED (SIM)</span>
+        </div>
+        <div class="val" id="kpiUsableHours">6.5 hrs</div>
+        <div class="sub" id="kpiUsableSub">Thermal exile: 5.5 hrs lost on selected route</div>
+      </div>
+
+      <div class="kpi-card">
+        <div class="label">
+          <span>Route-km Walkable at 4:00 PM</span>
+          <span class="prov prov-measured">MEASURED (SIM)</span>
+        </div>
+        <div class="val" id="kpiWalkablePct">33.3%</div>
+        <div class="sub" id="kpiWalkableSub">2 of 6 segments &le; 28.0&deg;C WBGT threshold</div>
+      </div>
+
+      <div class="kpi-card">
+        <div class="label">
+          <span>Segments Flagged PROXY_UNRELIABLE</span>
+          <span class="prov prov-proxy">|GAP| &gt; 15</span>
+        </div>
+        <div class="val" id="kpiFlagCount" style="color:var(--red);">5 / 6</div>
+        <div class="sub" id="kpiFlagSub">4 over-promised by proxy, 1 under-credited</div>
+      </div>
+
+      <div class="kpi-card">
+        <div class="label">
+          <span>Household Cooling Saved (p10&ndash;p90)</span>
+          <span class="prov prov-modelled">MODELLED (MC)</span>
+        </div>
+        <div class="val" id="kpiMoneyRange" style="color:var(--green);">RM 86&ndash;192/yr</div>
+        <div class="sub" id="kpiMoneySub">p50: RM 134/hh/yr @ 45.4 sen/kWh (RP4)</div>
+      </div>
+    </div>
+
+    <!-- Main Two-Column Workspace -->
+    <div class="workspace">
+
+      <!-- Left Column: Precinct Map + Comfort & Shade Ledger -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">
+            1. Comfort &amp; Shade Ledger (Layer 1 Design Proxy vs. Layer 2 Ground Truth)
+          </div>
+          <span style="font-size:11.5px; color:var(--muted);">Click any route on map or row in table to inspect</span>
+        </div>
+
+        <!-- Interactive SVG Schematic Map -->
+        <div class="map-box">
+          <div style="display:flex; justify-content:space-between; font-size:11px; color:var(--muted); margin-bottom:6px; flex-wrap:wrap; gap:6px;">
+            <span><strong>PRECINCT ARA WALKING NETWORK (1.12 km Audited)</strong> &mdash; Click segment to simulate</span>
+            <span>
+              <span style="color:#ef4444;">&#9644; PROXY_UNRELIABLE (Over-promised)</span> &nbsp;
+              <span style="color:#fbbf24;">&#9644; Under-credited</span> &nbsp;
+              <span style="color:#10b981;">&#9644; VERIFIED_ALIGNED</span>
+            </span>
+          </div>
+          <svg class="route-map" viewBox="0 0 760 205" id="precinctSvg">
+            <line x1="0" y1="50" x2="760" y2="50" stroke="#182432" stroke-dasharray="4" />
+            <line x1="0" y1="105" x2="760" y2="105" stroke="#182432" stroke-dasharray="4" />
+            <line x1="0" y1="160" x2="760" y2="160" stroke="#182432" stroke-dasharray="4" />
+            <!-- Destination Landmarks -->
+            <text x="35" y="32" fill="#64748b" font-size="10" font-family="sans-serif">PRIMARY SCHOOL</text>
+            <text x="215" y="32" fill="#64748b" font-size="10" font-family="sans-serif">SURAU &amp; CLINIC HUB</text>
+            <text x="610" y="32" fill="#64748b" font-size="10" font-family="sans-serif">PHASE 2A SHOW ROW</text>
+            <text x="235" y="190" fill="#64748b" font-size="10" font-family="sans-serif">SHOP ROW</text>
+            <text x="480" y="190" fill="#64748b" font-size="10" font-family="sans-serif">LINEAR PARK</text>
+            <g id="svgSegments"></g>
+            <g id="svgNodes"></g>
+          </svg>
+        </div>
+
+        <!-- Ledger Table -->
+        <div style="overflow-x:auto;">
+          <table class="ledger-table">
+            <thead>
+              <tr>
+                <th>Segment &amp; Route</th>
+                <th>Design Proxy Claim (Layer 1)</th>
+                <th>Ground-Truth Check (Layer 2)</th>
+                <th>Proxy</th>
+                <th>Measured</th>
+                <th>Gap</th>
+                <th>Audit Verdict</th>
+              </tr>
+            </thead>
+            <tbody id="ledgerBody"></tbody>
+          </table>
+        </div>
+
+        <!-- Diurnal Thermal Exile Clock -->
+        <div style="margin-top:16px; padding-top:12px; border-top:1px solid var(--border);">
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+            <div style="font-size:12.5px; font-weight:700;">
+              Diurnal Thermal Exile Clock (07:00 &ndash; 21:00) &mdash; <span id="clockSegName" style="color:var(--accent);"></span>
+            </div>
+            <div style="font-size:11.5px; color:var(--muted);">
+              Walkability Limit: <strong id="clockThreshLabel">28.0&deg;C WBGT</strong> <span class="prov prov-assumed">ASSUMED</span>
+            </div>
+          </div>
+          <div class="diurnal-grid" id="diurnalGrid"></div>
+        </div>
+      </div>
+
+      <!-- Right Column: Field WBGT Inspector & Monte Carlo Engine -->
+      <div style="display:flex; flex-direction:column; gap:18px;">
+
+        <!-- Segment WBGT Field Simulator -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">
+              2. Ground-Truth WBGT Field Simulator (ISO 7243 + Stull 2011)
+            </div>
+            <span class="prov prov-measured">4:00 PM FIELD CHECK</span>
+          </div>
+
+          <div style="font-size:12px; color:var(--muted); margin-bottom:10px;" id="inspectorDesc"></div>
+
+          <div class="slider-group">
+            <div class="slider-label">
+              <span>Dry-Bulb Air Temp (T<sub>a</sub>) <span class="prov prov-measured">MEASURED</span></span>
+              <span class="val-mono" id="valTa">33.8 &deg;C</span>
+            </div>
+            <input type="range" id="slideTa" min="27.0" max="38.0" step="0.1" value="33.8" oninput="updateSegmentFromSliders()" />
+          </div>
+
+          <div class="slider-group">
+            <div class="slider-label">
+              <span>Relative Humidity (RH) <span class="prov prov-measured">MEASURED</span></span>
+              <span class="val-mono" id="valRH">68 %</span>
+            </div>
+            <input type="range" id="slideRH" min="45" max="90" step="1" value="68" oninput="updateSegmentFromSliders()" />
+          </div>
+
+          <div class="slider-group">
+            <div class="slider-label">
+              <span>Black Globe Temp (T<sub>g</sub> &mdash; Solar Radiant Load) <span class="prov prov-measured">MEASURED</span></span>
+              <span class="val-mono" id="valTg">44.2 &deg;C</span>
+            </div>
+            <input type="range" id="slideTg" min="29.0" max="52.0" step="0.2" value="44.2" oninput="updateSegmentFromSliders()" />
+          </div>
+
+          <div class="slider-group">
+            <div class="slider-label">
+              <span>Measured Footpath Shade Continuity (1pm/5pm) <span class="prov prov-measured">MEASURED</span></span>
+              <span class="val-mono" id="valShade">14 %</span>
+            </div>
+            <input type="range" id="slideShade" min="0" max="100" step="1" value="14" oninput="updateSegmentFromSliders()" />
+          </div>
+
+          <div class="slider-group" style="padding-top:8px; border-top:1px dashed var(--border);">
+            <div class="slider-label">
+              <span>Configurable Walkability WBGT Threshold <span class="prov prov-assumed">ASSUMED</span></span>
+              <span class="val-mono" id="valThresh">28.0 &deg;C</span>
+            </div>
+            <input type="range" id="slideThresh" min="26.0" max="30.5" step="0.1" value="28.0" oninput="updateThreshold(this.value)" />
+          </div>
+
+          <div class="wbgt-box">
+            <div class="wbgt-cell">
+              <div class="t-label">Wet-Bulb (T<sub>nw</sub> Stull)</div>
+              <div class="t-val" id="outTnw">28.3 &deg;C</div>
+            </div>
+            <div class="wbgt-cell">
+              <div class="t-label">Outdoor WBGT (4pm)</div>
+              <div class="t-val" id="outWbgt" style="color:var(--red);">30.6 &deg;C</div>
+            </div>
+            <div class="wbgt-cell">
+              <div class="t-label">Measured Score / Gap</div>
+              <div class="t-val" id="outScoreGap">31 (Gap +51)</div>
+            </div>
+          </div>
+
+          <div class="formula-note">
+            ISO 7243 Outdoor: WBGT = 0.7&middot;Tnw + 0.2&middot;Tg + 0.1&middot;Ta &nbsp;|&nbsp; Rule: |Proxy &minus; Measured| &gt; 15 &rarr; PROXY_UNRELIABLE
+          </div>
+        </div>
+
+        <!-- Seeded Monte Carlo Household Energy & Tariff Simulator -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">
+              3. Seeded Monte Carlo Energy &amp; Tariff Engine (10,000 Draws)
+            </div>
+            <span class="prov prov-modelled">P10 / P50 / P90 RANGE (§9.7)</span>
+          </div>
+
+          <div class="slider-group">
+            <div class="slider-label">
+              <span>Peninsular Malaysia Tariff (&tau;<sub>eff</sub>, RP4 base = 45.4 sen) <span class="prov prov-measured">VERIFIED</span></span>
+              <span class="val-mono" id="valTariff">45.4 sen/kWh</span>
+            </div>
+            <input type="range" id="slideTariff" min="35.0" max="58.0" step="0.2" value="45.4" oninput="runMonteCarlo()" />
+          </div>
+
+          <div class="slider-group">
+            <div class="slider-label">
+              <span>Cooling Savings Coefficient (0.06/&deg;C, sensitivity 0.03&ndash;0.09) <span class="prov prov-assumed">ASSUMED</span></span>
+              <span class="val-mono" id="valCoeff">0.060 / &deg;C</span>
+            </div>
+            <input type="range" id="slideCoeff" min="0.030" max="0.090" step="0.005" value="0.060" oninput="runMonteCarlo()" />
+          </div>
+
+          <div class="slider-group">
+            <div class="slider-label">
+              <span>Mode Cooling &Delta;T (Canopy + Cool Roof Intervention) <span class="prov prov-modelled">MODELLED</span></span>
+              <span class="val-mono" id="valDeltaT">1.4 &deg;C</span>
+            </div>
+            <input type="range" id="slideDeltaT" min="0.5" max="2.5" step="0.1" value="1.4" oninput="runMonteCarlo()" />
+          </div>
+
+          <div class="slider-group">
+            <div class="slider-label">
+              <span>Township Scale (Households for Aggregation) <span class="prov prov-assumed">ASSUMED</span></span>
+              <span class="val-mono" id="valHomes">5,000 homes</span>
+            </div>
+            <input type="range" id="slideHomes" min="1000" max="10000" step="500" value="5000" oninput="runMonteCarlo()" />
+          </div>
+
+          <div class="mc-grid">
+            <div class="mc-box">
+              <div class="pct">p10 (Conservative)</div>
+              <div class="rm" id="mcP10">RM 86/yr</div>
+              <div class="twp" id="mcTwp10">RM 0.43M twp/yr</div>
+            </div>
+            <div class="mc-box" style="border-color:var(--green);">
+              <div class="pct">p50 (Median)</div>
+              <div class="rm" id="mcP50">RM 134/yr</div>
+              <div class="twp" id="mcTwp50">RM 0.67M twp/yr</div>
+            </div>
+            <div class="mc-box">
+              <div class="pct">p90 (Upper Bound)</div>
+              <div class="rm" id="mcP90">RM 192/yr</div>
+              <div class="twp" id="mcTwp90">RM 0.96M twp/yr</div>
+            </div>
+          </div>
+
+          <!-- Live 10,000-Draw Distribution Histogram -->
+          <div style="font-size:10.5px; color:var(--muted); margin-bottom:4px; display:flex; justify-content:space-between;">
+            <span>10,000-Draw Probability Distribution (RM / household / yr)</span>
+            <span id="mcKwhLabel" style="font-family:var(--mono);"></span>
+          </div>
+          <div class="hist-bars" id="mcHistogram"></div>
+
+          <div class="formula-note">
+            kWh_saved = E_cool_base &times; clamp(c_&Delta;T &times; &Delta;T, 0, 0.30) &times; 12 &nbsp;|&nbsp; Never quoted as a single point (§9.7)
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Bottom Card: Stakeholder Decision Views (§5) & Open Questions (§15) -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">4. Stakeholder Output Views (§5) &amp; What Only Field Work Can Answer (§15)</div>
+        <span class="prov prov-measured">DECISION ARTEFACT</span>
+      </div>
+      <div class="tab-row">
+        <button class="tab-btn active" onclick="selectStakeholder('resident', this)">Resident Household (Primary User)</button>
+        <button class="tab-btn" onclick="selectStakeholder('developer', this)">Developer Township Team (Economic Buyer)</button>
+        <button class="tab-btn" onclick="selectStakeholder('pbt', this)">Local Authority / PBT (GP024 Gatekeeper)</button>
+        <button class="tab-btn" onclick="selectStakeholder('contractor', this)">Landscape &amp; Maintenance Contractor (Operator)</button>
+        <button class="tab-btn" onclick="selectStakeholder('openquestions', this)">§15 Open Field Questions &amp; §9 Audit</button>
+      </div>
+      <div class="stakeholder-panel" id="stakeholderContent"></div>
+    </div>
+
+  </div>
+
+  <script>
+    // ============================================================================
+    // 1. SCIENTIFIC & MATHEMATICAL FUNCTIONS (§8 Specification)
+    // ============================================================================
+
+    // Stull (2011) empirical Wet-Bulb Temperature approximation (Ta in C, RH in %)
+    function calcWetBulbStull(Ta, RH) {
+      const t1 = Ta * Math.atan(0.151977 * Math.sqrt(RH + 8.313659));
+      const t2 = Math.atan(Ta + RH);
+      const t3 = Math.atan(RH - 1.676331);
+      const t4 = 0.00391838 * Math.pow(RH, 1.5) * Math.atan(0.023101 * RH);
+      return t1 + t2 - t3 + t4 - 4.686035;
+    }
+
+    // ISO 7243 Outdoor WBGT = 0.7 * Tnw + 0.2 * Tg + 0.1 * Ta
+    function calcOutdoorWBGT(Ta, RH, Tg) {
+      const Tnw = calcWetBulbStull(Ta, RH);
+      const wbgt = 0.7 * Tnw + 0.2 * Tg + 0.1 * Ta;
+      return { Tnw, wbgt };
+    }
+
+    // Normalised 0-100 Measured Comfort Score
+    function calcMeasuredScore(wbgt, shadePct, threshold) {
+      const raw = 50 + 12.5 * (threshold - wbgt) + 0.35 * (shadePct - 50);
+      return Math.round(Math.max(0, Math.min(100, raw)));
+    }
+
+    // Seeded PRNG (Mulberry32) for reproducible 10,000-draw Monte Carlo
+    function mulberry32(a) {
+      return function() {
+        var t = a += 0x6D2B79F5;
+        t = Math.imul(t ^ t >>> 15, t | 1);
+        t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+        return ((t ^ t >>> 14) >>> 0) / 4294967296;
+      };
+    }
+
+    function sampleTriangular(min, mode, max, rng) {
+      const u = rng();
+      const f = (mode - min) / (max - min);
+      if (u < f) {
+        return min + Math.sqrt(u * (max - min) * (mode - min));
+      } else {
+        return max - Math.sqrt((1 - u) * (max - min) * (max - mode));
+      }
+    }
+
+    // ============================================================================
+    // 2. PRECINCT ARA SIMULATED DATASET (Baseline vs. Verified Phase)
+    // ============================================================================
+    let currentPhase = 'baseline';
+    let wbgtThreshold = 28.0;
+    let selectedSegIndex = 0;
+    let currentStakeholder = 'resident';
+
+    const baselineSegments = [
+      {
+        id: 'SEG-01',
+        name: 'Primary School Walk (200m)',
+        proxyClaim: 'GIS Canopy 34% (Road Reserve)',
+        proxyProv: 'PROXY',
+        fieldCheck: '20 shade-pts (8am/1pm/5pm): trees in median, path exposed',
+        proxyScore: 82,
+        Ta: 33.8, RH: 68, Tg: 44.2, shadePct: 14,
+        action: 'Rank #1: Continuous trellis + Hopea odorata over west footpath',
+        coords: [45, 55, 240, 55]
+      },
+      {
+        id: 'SEG-02',
+        name: 'Surau & Clinic Linkway (180m)',
+        proxyClaim: 'GP024 Green Space < 400m (280m radius)',
+        proxyProv: 'PROXY',
+        fieldCheck: '4–6pm foot-traffic count: 9 walkers/hr (0 elderly) on bridge',
+        proxyScore: 85,
+        Ta: 33.4, RH: 69, Tg: 42.8, shadePct: 19,
+        action: 'Rank #2: Covered linkway pergola + high-albedo paving (SRI >= 35)',
+        coords: [240, 55, 440, 100]
+      },
+      {
+        id: 'SEG-03',
+        name: 'Terrace Ph 2A Show Row (30 Roofs)',
+        proxyClaim: 'Roof SRI Specification Compliant (MS 2680)',
+        proxyProv: 'PROXY',
+        fieldCheck: '30 IR roof spot-checks + 10 indoor loggers (33.4°C @ 3pm)',
+        proxyScore: 78,
+        Ta: 33.1, RH: 67, Tg: 40.5, shadePct: 32,
+        action: 'Rank #3: Controlled cool-roof high-SRI coating + ridge ventilation',
+        coords: [440, 100, 700, 55]
+      },
+      {
+        id: 'SEG-04',
+        name: 'Commercial Shop Row Apron (150m)',
+        proxyClaim: 'ENVI-met Model (-1.8°C) + Paving SRI >= 29',
+        proxyProv: 'MODELLED',
+        fieldCheck: '3 fixed sensors (2 wks): actual delta -0.3°C due to AC exhaust',
+        proxyScore: 80,
+        Ta: 33.5, RH: 66, Tg: 41.2, shadePct: 28,
+        action: 'Rank #4: Baffle AC condenser exhaust + shade sails + SRI >= 35 coating',
+        coords: [240, 55, 290, 160]
+      },
+      {
+        id: 'SEG-05',
+        name: 'Linear Park Rain-Tree Walk (250m)',
+        proxyClaim: 'GIS Canopy 42% + GP024 Bio-Swale',
+        proxyProv: 'PROXY',
+        fieldCheck: '20 shade-pts: 84% continuous Samanea saman shade; 68 walkers/hr',
+        proxyScore: 84,
+        Ta: 30.8, RH: 71, Tg: 32.4, shadePct: 84,
+        action: 'Protect & retain: Proxy verified aligned with lived comfort',
+        coords: [290, 160, 540, 160]
+      },
+      {
+        id: 'SEG-06',
+        name: 'Cul-de-Sac N-S Terrace Street (160m)',
+        proxyClaim: 'GIS Canopy 18% + MS 2680 N-S Orientation',
+        proxyProv: 'PROXY',
+        fieldCheck: '20 shade-pts: Deep porch eaves cast 68% afternoon building shade',
+        proxyScore: 52,
+        Ta: 31.4, RH: 68, Tg: 34.2, shadePct: 68,
+        action: 'Document finding: Low GIS tree score missed building self-shading',
+        coords: [540, 160, 715, 130]
+      }
+    ];
+
+    const verifiedSegments = [
+      {
+        id: 'SEG-01',
+        name: 'Primary School Walk (200m) [RETROFITTED]',
+        proxyClaim: 'GIS Canopy 34% + Continuous Trellis Retrofit',
+        proxyProv: 'PROXY',
+        fieldCheck: 'Week 12 Re-check: 78% path shade at 4pm; foot traffic +190%',
+        proxyScore: 82,
+        Ta: 31.2, RH: 69, Tg: 33.8, shadePct: 78,
+        action: 'VERIFIED: Gap reduced from +51 to +5 after 50m canopy/trellis work',
+        coords: [45, 55, 240, 55]
+      },
+      {
+        id: 'SEG-02',
+        name: 'Surau & Clinic Linkway (180m) [RETROFITTED]',
+        proxyClaim: 'GP024 Green Space < 400m + Shaded Linkway',
+        proxyProv: 'PROXY',
+        fieldCheck: 'Week 12 Re-check: 44 walkers/hr (14 elderly) at 4:30pm',
+        proxyScore: 85,
+        Ta: 31.4, RH: 69, Tg: 34.1, shadePct: 75,
+        action: 'VERIFIED: Thermal exile resolved on Surau bridge approach',
+        coords: [240, 55, 440, 100]
+      },
+      {
+        id: 'SEG-03',
+        name: 'Terrace Ph 2A Show Row [COOL-ROOF TEST]',
+        proxyClaim: 'High-SRI Roof Retrofit + Ridge Vent (MS 2680)',
+        proxyProv: 'PROXY',
+        fieldCheck: 'Week 12 Logger: Indoor peak dropped -1.9°C vs control unit',
+        proxyScore: 78,
+        Ta: 31.5, RH: 67, Tg: 34.5, shadePct: 66,
+        action: 'VERIFIED: Controlled show-unit retrofit confirmed by indoor logger',
+        coords: [440, 100, 700, 55]
+      },
+      {
+        id: 'SEG-04',
+        name: 'Commercial Shop Row Apron (150m) [PARTIAL]',
+        proxyClaim: 'ENVI-met Model (-1.8°C) + High-SRI Apron',
+        proxyProv: 'MODELLED',
+        fieldCheck: 'Week 12 Sensor: Improved to -0.9°C, still 17 pts below model',
+        proxyScore: 80,
+        Ta: 32.3, RH: 66, Tg: 37.6, shadePct: 52,
+        action: 'FLAG REMAINS: Anthropogenic AC heat still invalidates ENVI-met claim',
+        coords: [240, 55, 290, 160]
+      },
+      {
+        id: 'SEG-05',
+        name: 'Linear Park Rain-Tree Walk (250m)',
+        proxyClaim: 'GIS Canopy 42% + GP024 Bio-Swale',
+        proxyProv: 'PROXY',
+        fieldCheck: 'Week 12 Re-check: 84% continuous shade; 72 walkers/hr',
+        proxyScore: 84,
+        Ta: 30.8, RH: 71, Tg: 32.4, shadePct: 84,
+        action: 'VERIFIED_ALIGNED: Benchmark control route',
+        coords: [290, 160, 540, 160]
+      },
+      {
+        id: 'SEG-06',
+        name: 'Cul-de-Sac N-S Terrace Street (160m)',
+        proxyClaim: 'GIS Canopy 18% + MS 2680 N-S Orientation',
+        proxyProv: 'PROXY',
+        fieldCheck: 'Week 12 Re-check: 68% building massing shade confirmed',
+        proxyScore: 52,
+        Ta: 31.4, RH: 68, Tg: 34.2, shadePct: 68,
+        action: 'PROXY_UNRELIABLE (Under-credited): Update proxy weight for N-S eaves',
+        coords: [540, 160, 715, 130]
+      }
+    ];
+
+    let activeSegments = JSON.parse(JSON.stringify(baselineSegments));
+
+    // ============================================================================
+    // 3. UI RENDERING & SIMULATION ENGINE
+    // ============================================================================
+
+    function setPilotPhase(phase) {
+      currentPhase = phase;
+      document.getElementById('btnPhaseBaseline').classList.toggle('active', phase === 'baseline');
+      document.getElementById('btnPhaseVerified').classList.toggle('active', phase === 'verified');
+      document.getElementById('step1').classList.toggle('active-step', phase === 'baseline');
+      document.getElementById('step2').classList.toggle('active-step', phase === 'baseline');
+      document.getElementById('step3').classList.toggle('active-step', phase === 'verified');
+      document.getElementById('step4').classList.toggle('active-step', phase === 'verified');
+
+      activeSegments = JSON.parse(JSON.stringify(phase === 'baseline' ? baselineSegments : verifiedSegments));
+      loadSegmentToSliders(selectedSegIndex);
+      renderAll();
+    }
+
+    function resetCurrentPhase() {
+      setPilotPhase(currentPhase);
+      document.getElementById('slideThresh').value = 28.0;
+      wbgtThreshold = 28.0;
+      document.getElementById('valThresh').textContent = '28.0 °C';
+      document.getElementById('clockThreshLabel').textContent = '28.0°C WBGT';
+      document.getElementById('slideTariff').value = 45.4;
+      document.getElementById('slideCoeff').value = 0.060;
+      document.getElementById('slideDeltaT').value = 1.4;
+      document.getElementById('slideHomes').value = 5000;
+      runMonteCarlo();
+      renderAll();
+    }
+
+    function selectSegment(index) {
+      selectedSegIndex = index;
+      loadSegmentToSliders(index);
+      renderAll();
+    }
+
+    function loadSegmentToSliders(index) {
+      const seg = activeSegments[index];
+      document.getElementById('slideTa').value = seg.Ta;
+      document.getElementById('slideRH').value = seg.RH;
+      document.getElementById('slideTg').value = seg.Tg;
+      document.getElementById('slideShade').value = seg.shadePct;
+    }
+
+    function updateSegmentFromSliders() {
+      const seg = activeSegments[selectedSegIndex];
+      seg.Ta = parseFloat(document.getElementById('slideTa').value);
+      seg.RH = parseFloat(document.getElementById('slideRH').value);
+      seg.Tg = parseFloat(document.getElementById('slideTg').value);
+      seg.shadePct = parseInt(document.getElementById('slideShade').value, 10);
+      renderAll();
+    }
+
+    function updateThreshold(val) {
+      wbgtThreshold = parseFloat(val);
+      document.getElementById('valThresh').textContent = wbgtThreshold.toFixed(1) + ' °C';
+      document.getElementById('clockThreshLabel').textContent = wbgtThreshold.toFixed(1) + '°C WBGT';
+      renderAll();
+    }
+
+    function renderAll() {
+      const tbody = document.getElementById('ledgerBody');
+      tbody.innerHTML = '';
+
+      let walkableCount = 0;
+      let unreliableCount = 0;
+      let overPromisedCount = 0;
+      let underCreditedCount = 0;
+
+      const svgSegs = document.getElementById('svgSegments');
+      const svgNodes = document.getElementById('svgNodes');
+      svgSegs.innerHTML = '';
+      svgNodes.innerHTML = '';
+
+      activeSegments.forEach((seg, idx) => {
+        const { Tnw, wbgt } = calcOutdoorWBGT(seg.Ta, seg.RH, seg.Tg);
+        const mScore = calcMeasuredScore(wbgt, seg.shadePct, wbgtThreshold);
+        const gap = seg.proxyScore - mScore;
+        const absGap = Math.abs(gap);
+
+        seg.Tnw = Tnw;
+        seg.wbgt = wbgt;
+        seg.mScore = mScore;
+        seg.gap = gap;
+
+        if (wbgt <= wbgtThreshold) walkableCount++;
+
+        let flagHtml = '';
+        let strokeColor = '#10b981';
+        if (absGap > 15) {
+          unreliableCount++;
+          if (gap > 15) {
+            overPromisedCount++;
+            flagHtml = `<span class="flag-badge flag-unreliable">PROXY_UNRELIABLE (+${gap})</span>`;
+            strokeColor = '#ef4444';
+          } else {
+            underCreditedCount++;
+            flagHtml = `<span class="flag-badge flag-under">PROXY_UNRELIABLE (${gap})</span>`;
+            strokeColor = '#fbbf24';
+          }
+        } else {
+          flagHtml = `<span class="flag-badge flag-verified">VERIFIED (${gap >= 0 ? '+' + gap : gap})</span>`;
+          strokeColor = '#10b981';
+        }
+
+        const provClass = seg.proxyProv === 'MODELLED' ? 'prov-modelled' : 'prov-proxy';
+
+        const tr = document.createElement('tr');
+        tr.className = 'seg-row' + (idx === selectedSegIndex ? ' selected' : '');
+        tr.onclick = () => selectSegment(idx);
+        tr.innerHTML = `
+          <td>
+            <strong>${seg.id}</strong><br/>
+            <span style="font-size:11px; color:var(--muted);">${seg.name}</span>
+          </td>
+          <td>
+            ${seg.proxyClaim} <span class="prov ${provClass}">${seg.proxyProv}</span>
+          </td>
+          <td>
+            ${seg.fieldCheck}<br/>
+            <span style="font-family:var(--mono); font-size:11px; color:${wbgt <= wbgtThreshold ? 'var(--green)' : 'var(--red)'};">
+              4pm WBGT: ${wbgt.toFixed(1)}&deg;C | Shade: ${seg.shadePct}%
+            </span>
+            <span class="prov prov-measured">MEASURED</span>
+          </td>
+          <td style="font-family:var(--mono); font-weight:700;">${seg.proxyScore}</td>
+          <td style="font-family:var(--mono); font-weight:700;">${mScore}</td>
+          <td style="font-family:var(--mono); font-weight:700; color:${absGap > 15 ? 'var(--red)' : 'var(--green)'};">
+            ${gap >= 0 ? '+' + gap : gap}
+          </td>
+          <td>${flagHtml}</td>
+        `;
+        tbody.appendChild(tr);
+
+        // Draw SVG Line
+        const [x1, y1, x2, y2] = seg.coords;
+        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        line.setAttribute('x1', x1);
+        line.setAttribute('y1', y1);
+        line.setAttribute('x2', x2);
+        line.setAttribute('y2', y2);
+        line.setAttribute('stroke', strokeColor);
+        line.setAttribute('class', 'map-seg' + (idx === selectedSegIndex ? ' active-seg' : ''));
+        line.onclick = () => selectSegment(idx);
+        svgSegs.appendChild(line);
+
+        // Endpoint circles
+        [[x1, y1], [x2, y2]].forEach(([cx, cy]) => {
+          const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+          c.setAttribute('cx', cx);
+          c.setAttribute('cy', cy);
+          c.setAttribute('r', '4.5');
+          c.setAttribute('fill', '#0b1016');
+          c.setAttribute('stroke', '#94a3b8');
+          c.setAttribute('stroke-width', '2');
+          svgNodes.appendChild(c);
+        });
+
+        // Midpoint Label
+        const mx = (x1 + x2) / 2;
+        const my = (y1 + y2) / 2 - 11;
+        const txt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        txt.setAttribute('x', mx);
+        txt.setAttribute('y', my);
+        txt.setAttribute('fill', idx === selectedSegIndex ? '#38bdf8' : '#e6edf3');
+        txt.setAttribute('font-size', '11');
+        txt.setAttribute('font-family', 'monospace');
+        txt.setAttribute('font-weight', 'bold');
+        txt.setAttribute('text-anchor', 'middle');
+        txt.textContent = `${seg.id} (${wbgt.toFixed(1)}°C)`;
+        svgNodes.appendChild(txt);
+      });
+
+      // Update Inspector Panel for selected segment
+      const sel = activeSegments[selectedSegIndex];
+      document.getElementById('valTa').textContent = sel.Ta.toFixed(1) + ' °C';
+      document.getElementById('valRH').textContent = sel.RH.toFixed(0) + ' %';
+      document.getElementById('valTg').textContent = sel.Tg.toFixed(1) + ' °C';
+      document.getElementById('valShade').textContent = sel.shadePct + ' %';
+      document.getElementById('outTnw').textContent = sel.Tnw.toFixed(1) + ' °C';
+      const outWbgtEl = document.getElementById('outWbgt');
+      outWbgtEl.textContent = sel.wbgt.toFixed(1) + ' °C';
+      outWbgtEl.style.color = sel.wbgt <= wbgtThreshold ? 'var(--green)' : 'var(--red)';
+      document.getElementById('outScoreGap').textContent = `${sel.mScore} (Gap ${sel.gap >= 0 ? '+' + sel.gap : sel.gap})`;
+      document.getElementById('inspectorDesc').innerHTML = `<strong>Inspecting ${sel.id}: ${sel.name}</strong><br/>Recommended Action: <span style="color:var(--accent);">${sel.action}</span>`;
+
+      // Render Diurnal Clock for selected segment
+      renderDiurnalClock(sel);
+
+      // Update Top Headline KPIs
+      const walkablePct = ((walkableCount / activeSegments.length) * 100).toFixed(1);
+      document.getElementById('kpiWalkablePct').textContent = walkablePct + '%';
+      document.getElementById('kpiWalkableSub').textContent = `${walkableCount} of ${activeSegments.length} segments <= ${wbgtThreshold.toFixed(1)}°C WBGT threshold`;
+
+      document.getElementById('kpiFlagCount').textContent = `${unreliableCount} / ${activeSegments.length}`;
+      document.getElementById('kpiFlagCount').style.color = unreliableCount > 2 ? 'var(--red)' : 'var(--amber)';
+      document.getElementById('kpiFlagSub').textContent = `${overPromisedCount} over-promised by proxy, ${underCreditedCount} under-credited`;
+
+      updateStakeholderView();
+    }
+
+    function renderDiurnalClock(seg) {
+      document.getElementById('clockSegName').textContent = `${seg.id} (${seg.name})`;
+      const grid = document.getElementById('diurnalGrid');
+      grid.innerHTML = '';
+
+      const hourOffsets = [
+        { h: '07:00', d: -4.2 },
+        { h: '08:00', d: -3.1 },
+        { h: '09:00', d: -1.8 },
+        { h: '10:00', d: -0.7 },
+        { h: '11:00', d: +0.3 },
+        { h: '12:00', d: +1.1 },
+        { h: '13:00', d: +1.6 },
+        { h: '14:00', d: +1.8 },
+        { h: '15:00', d: +1.2 },
+        { h: '16:00', d: 0.0 },
+        { h: '17:00', d: -0.8 },
+        { h: '18:00', d: -1.9 },
+        { h: '19:00', d: -2.8 },
+        { h: '20:00', d: -3.3 },
+        { h: '21:00', d: -3.7 }
+      ];
+
+      let usableHours = 0;
+      let exileHours = 0;
+
+      hourOffsets.forEach(item => {
+        const hrWbgt = seg.wbgt + item.d;
+        const isUsable = hrWbgt <= wbgtThreshold;
+        if (isUsable) usableHours++; else exileHours++;
+
+        const div = document.createElement('div');
+        div.className = 'hour-bar ' + (isUsable ? 'usable' : 'exile');
+        div.innerHTML = `
+          <div>${item.h}</div>
+          <div style="font-weight:700; margin-top:2px;">${hrWbgt.toFixed(1)}&deg;</div>
+          <div style="font-size:9px;">${isUsable ? 'USABLE' : 'EXILE'}</div>
+        `;
+        grid.appendChild(div);
+      });
+
+      document.getElementById('kpiUsableHours').textContent = `${usableHours} hrs / day`;
+      document.getElementById('kpiUsableSub').textContent = `Selected route: ${exileHours} hrs in thermal exile (> ${wbgtThreshold.toFixed(1)}°C WBGT)`;
+    }
+
+    // ============================================================================
+    // 4. SEEDED MONTE CARLO ENGINE (10,000 Draws + Histogram)
+    // ============================================================================
+    function runMonteCarlo() {
+      const tariffSen = parseFloat(document.getElementById('slideTariff').value);
+      const coeffMode = parseFloat(document.getElementById('slideCoeff').value);
+      const deltaTMode = parseFloat(document.getElementById('slideDeltaT').value);
+      const homes = parseInt(document.getElementById('slideHomes').value, 10);
+
+      document.getElementById('valTariff').textContent = tariffSen.toFixed(1) + ' sen/kWh';
+      document.getElementById('valCoeff').textContent = coeffMode.toFixed(3) + ' / °C';
+      document.getElementById('valDeltaT').textContent = deltaTMode.toFixed(1) + ' °C';
+      document.getElementById('valHomes').textContent = homes.toLocaleString() + ' homes';
+
+      const tariffRM = tariffSen / 100.0;
+      const rng = mulberry32(20261021); // Fixed deterministic seed per §8
+      const N = 10000;
+      const resultsRM = new Float64Array(N);
+      const resultsKwh = new Float64Array(N);
+
+      const cMin = Math.max(0.02, coeffMode - 0.025);
+      const cMax = Math.min(0.11, coeffMode + 0.025);
+      const dtMin = Math.max(0.2, deltaTMode - 0.5);
+      const dtMax = deltaTMode + 0.6;
+
+      for (let i = 0; i < N; i++) {
+        const baseCoolKwhMo = sampleTriangular(160, 215, 290, rng);
+        const c = sampleTriangular(cMin, coeffMode, cMax, rng);
+        const dT = sampleTriangular(dtMin, deltaTMode, dtMax, rng);
+        const fracSaved = Math.max(0, Math.min(0.30, c * dT));
+        const annualKwhSaved = baseCoolKwhMo * fracSaved * 12.0;
+        resultsKwh[i] = annualKwhSaved;
+        resultsRM[i] = annualKwhSaved * tariffRM;
+      }
+
+      resultsRM.sort();
+      resultsKwh.sort();
+      const p10 = resultsRM[Math.floor(N * 0.10)];
+      const p50 = resultsRM[Math.floor(N * 0.50)];
+      const p90 = resultsRM[Math.floor(N * 0.90)];
+      const kwh50 = Math.round(resultsKwh[Math.floor(N * 0.50)]);
+
+      document.getElementById('mcP10').textContent = `RM ${Math.round(p10)}/yr`;
+      document.getElementById('mcP50').textContent = `RM ${Math.round(p50)}/yr`;
+      document.getElementById('mcP90').textContent = `RM ${Math.round(p90)}/yr`;
+      document.getElementById('mcKwhLabel').textContent = `Median: ~${kwh50} kWh/hh/yr saved`;
+
+      const twp10 = ((p10 * homes) / 1e6).toFixed(2);
+      const twp50 = ((p50 * homes) / 1e6).toFixed(2);
+      const twp90 = ((p90 * homes) / 1e6).toFixed(2);
+
+      document.getElementById('mcTwp10').textContent = `RM ${twp10}M twp/yr`;
+      document.getElementById('mcTwp50').textContent = `RM ${twp50}M twp/yr`;
+      document.getElementById('mcTwp90').textContent = `RM ${twp90}M twp/yr`;
+
+      document.getElementById('kpiMoneyRange').textContent = `RM ${Math.round(p10)}–${Math.round(p90)}/yr`;
+      document.getElementById('kpiMoneySub').textContent = `p50: RM ${Math.round(p50)}/hh/yr (RM ${twp50}M/${(homes/1000).toFixed(1)}k homes)`;
+
+      // Build 18-bin histogram
+      const bins = 18;
+      const minVal = resultsRM[0];
+      const maxVal = resultsRM[N - 1] || 1;
+      const counts = new Array(bins).fill(0);
+      const span = Math.max(1, maxVal - minVal);
+      for (let i = 0; i < N; i++) {
+        const b = Math.min(bins - 1, Math.floor(((resultsRM[i] - minVal) / span) * bins));
+        counts[b]++;
+      }
+      const maxCount = Math.max(...counts, 1);
+      const histEl = document.getElementById('mcHistogram');
+      histEl.innerHTML = counts.map((cnt, idx) => {
+        const hPct = Math.max(6, Math.round((cnt / maxCount) * 100));
+        const binMid = minVal + ((idx + 0.5) / bins) * span;
+        const isMiddle = binMid >= p10 && binMid <= p90;
+        const bg = isMiddle ? 'var(--green)' : 'rgba(56, 189, 248, 0.35)';
+        return `<div class="hist-col" style="height:${hPct}%; background:${bg};" title="RM ${Math.round(binMid)}/yr (${cnt} draws)"></div>`;
+      }).join('');
+    }
+
+    // ============================================================================
+    // 5. STAKEHOLDER VIEW SWITCHER (§5 & §15)
+    // ============================================================================
+    function selectStakeholder(role, btnEl) {
+      currentStakeholder = role;
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      if (btnEl) btnEl.classList.add('active');
+      updateStakeholderView();
+    }
+
+    function updateStakeholderView() {
+      const box = document.getElementById('stakeholderContent');
+      const sel = activeSegments[selectedSegIndex];
+      if (currentStakeholder === 'resident') {
+        box.innerHTML = `
+          <strong>Resident Household — Auditable Outdoor Comfort Disclosure (Pre-Purchase &amp; Post-Handover):</strong>
+          <ul style="margin:8px 0 0 18px;">
+            <li><strong>Currently Selected Route (${sel.id} &mdash; ${sel.name}):</strong> At 4:00 PM, ground-truth outdoor WBGT is <strong>${sel.wbgt.toFixed(1)}&deg;C</strong> (${sel.wbgt <= wbgtThreshold ? 'Walkable for children &amp; elderly' : 'Exceeds ' + wbgtThreshold.toFixed(1) + '&deg;C comfort threshold — Thermal Exile'}).</li>
+            <li><strong>Why Design Brochure &ne; Lived Experience:</strong> Layer 1 design proxy scored <strong>${sel.proxyScore}/100</strong> (<em>${sel.proxyClaim}</em>), whereas measured footpath shade continuity is <strong>${sel.shadePct}%</strong> (Score <strong>${sel.mScore}/100</strong>, Gap <strong>${sel.gap >= 0 ? '+' + sel.gap : sel.gap}</strong>).</li>
+            <li><strong>Household Electricity Impact:</strong> Cooling accounts for 29% (terrace houses) to 50% (low-cost flats) of electricity usage. Under Peninsular Malaysia's RP4 tariff (45.4 sen/kWh base, 800 kWh bill-protection threshold), verified shade + cool-roof retrofits save <strong>${document.getElementById('kpiMoneyRange').textContent}</strong> <span class="prov prov-modelled">MODELLED</span>.</li>
+          </ul>
+        `;
+      } else if (currentStakeholder === 'developer') {
+        box.innerHTML = `
+          <strong>Developer Township Team — ESG Assurance &amp; Scope 2 / Climate Risk Verification:</strong>
+          <ul style="margin:8px 0 0 18px;">
+            <li><strong>Closes the Public Sustainability Loop (§3.4):</strong> Directly operationalises public commitments to <em>Net Zero Operational Carbon by 2050</em>, <em>&minus;40% Scope 1 &amp; 2 emissions by 2030</em>, and township physical climate risk assessments with an auditable heat outcome KPI.</li>
+            <li><strong>Fixes the Point-Chasing Gap (§3.6):</strong> Heat is worth just 4 credits in voluntary GBI Township and 1 of 41 sub-criteria in voluntary LCCF (UE 2-6). TEDUH provides internal assurance first, public disclosure second.</li>
+            <li><strong>12-Week Pilot Budget (§11):</strong> ~RM80k&ndash;150k <span class="prov prov-assumed">ASSUMED</span> (1 handheld WBGT meter, 20 route points, 30 IR roof checks, 10 consented indoor loggers, 50m route retrofit).</li>
+          </ul>
+        `;
+      } else if (currentStakeholder === 'pbt') {
+        box.innerHTML = `
+          <strong>Local Authority (PBT) — Planning Permission (Kebenaran Merancang) Evidence under GP024:</strong>
+          <ul style="margin:8px 0 0 18px;">
+            <li><strong>Verifies GP024 Kejiranan Hijau Walkability:</strong> GP024 (2012) is used by PBTs as a planning permission guideline for 400m / 5&ndash;10 min neighbourhood modules. In <code>SEG-02</code>, a 280m map radius passed on paper but failed at 4:30 PM due to an unshaded bridge approach.</li>
+            <li><strong>Strict Standards Hygiene (§3.5 &amp; §9):</strong> Residential passive ventilation and envelope checks cite <strong>MS 2680</strong> (never MS 1525:2019, which applies strictly to non-residential buildings &gt;4,000 m&sup2;), LCCF surface recommendation of <strong>SRI &ge; 29</strong>, and <strong>MS ISO 37122:2021</strong> for smart-city reporting indicators.</li>
+          </ul>
+        `;
+      } else if (currentStakeholder === 'contractor') {
+        const sorted = [...activeSegments].sort((a, b) => (b.proxyScore - b.mScore) - (a.proxyScore - a.mScore));
+        box.innerHTML = `
+          <strong>Landscape &amp; Maintenance Contractor — Ranked Worklist by Measured Gap (Existing Budget Reallocation):</strong>
+          <ol style="margin:8px 0 0 18px;">
+            ${sorted.map(s => `<li><strong>${s.id} (${s.name}):</strong> Gap <code>${s.gap >= 0 ? '+' + s.gap : s.gap}</code> | 4pm WBGT: ${s.wbgt.toFixed(1)}&deg;C | Footpath Shade: ${s.shadePct}% &rarr; <em>${s.action}</em></li>`).join('')}
+          </ol>
+        `;
+      } else {
+        box.innerHTML = `
+          <strong>§15 Open Questions That Only Field Work Can Answer (Never Fabricated per §9.10):</strong>
+          <ol style="margin:8px 0 0 18px; display:grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap:6px 24px;">
+            <li>Actual indoor temperature in an occupied township home at 3pm? <span class="prov prov-assumed">UNMEASURED</span></li>
+            <li>How many people use parks &amp; walking routes between 4pm and 6pm today? <span class="prov prov-assumed">UNMEASURED</span></li>
+            <li>Does GIS canopy % predict shade on the route people actually walk? <span class="prov prov-assumed">HYPOTHESIS</span></li>
+            <li>Does a compliant roof spec produce a measurably cooler occupied room? <span class="prov prov-assumed">HYPOTHESIS</span></li>
+            <li>Which exact outdoor hours are lost (assumed 12pm&ndash;5pm)? <span class="prov prov-assumed">ASSUMED</span></li>
+            <li>Does resident perception of heat match instrumented WBGT? <span class="prov prov-assumed">UNMEASURED</span></li>
+            <li>Will a developer publish a negative finding (internal assurance first)? <span class="prov prov-assumed">OPEN</span></li>
+            <li>Real cost per 50m of route retrofit in a Malaysian township? <span class="prov prov-assumed">TO BE QUOTED</span></li>
+          </ol>
+        `;
+      }
+    }
+
+    // Initialize simulation on load
+    window.onload = function() {
+      loadSegmentToSliders(0);
+      runMonteCarlo();
+      renderAll();
+    };
+  </script>
+</body>
+</html>

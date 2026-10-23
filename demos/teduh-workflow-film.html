@@ -1,0 +1,1131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TEDUH — 58s Automated Workflow Demonstration Film</title>
+  <style>
+    :root {
+      --bg-ink: #0d1314;
+      --paper-cream: #f6f3ec;
+      --paper-border: #d5cfc2;
+      --text-dark: #182220;
+      --text-muted: #52605c;
+      --accent-teal: #2b7a6b;
+      --accent-amber: #d97724;
+      --accent-red: #b83b2b;
+      --accent-gold: #c89d3c;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: var(--bg-ink);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      color: #ffffff;
+    }
+
+    /* Full-frame Cinema Letterbox Viewport (No Interactive UI) */
+    #film-stage {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      background: #101819;
+    }
+
+    canvas#webgl-canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    /* Cinematic Widescreen Bars */
+    .letterbox-top,
+    .letterbox-bottom {
+      position: absolute;
+      left: 0;
+      width: 100%;
+      height: 6.5vh;
+      background: #080b0c;
+      z-index: 20;
+      pointer-events: none;
+    }
+    .letterbox-top {
+      top: 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 3vw;
+      font-size: 0.76rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.62);
+    }
+    .letterbox-bottom {
+      bottom: 0;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 3vw;
+    }
+
+    /* Subtle non-interactive film progress line */
+    #film-progress-track {
+      position: absolute;
+      bottom: 6.5vh;
+      left: 0;
+      width: 100%;
+      height: 3px;
+      background: rgba(255, 255, 255, 0.12);
+      z-index: 25;
+      pointer-events: none;
+    }
+    #film-progress-bar {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #4ea896, #e09f3e);
+      transition: width 0.1s linear;
+    }
+
+    /* Lower-left Scene Title Card (Film Subtitle Style) */
+    #scene-card {
+      position: absolute;
+      left: 4vw;
+      bottom: 10.5vh;
+      z-index: 15;
+      max-width: 540px;
+      pointer-events: none;
+      background: rgba(12, 20, 21, 0.76);
+      backdrop-filter: blur(6px);
+      border-left: 3px solid #57b8a4;
+      padding: 14px 20px;
+      border-radius: 2px;
+      transition: opacity 0.45s ease, transform 0.45s ease;
+    }
+    #scene-step {
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: #72d6c1;
+      margin-bottom: 4px;
+    }
+    #scene-subtitle {
+      font-size: 1.25rem;
+      font-weight: 400;
+      font-style: italic;
+      color: #f4f7f6;
+      line-height: 1.35;
+    }
+    #scene-caption {
+      margin-top: 8px;
+      font-size: 0.84rem;
+      color: rgba(235, 242, 240, 0.82);
+      line-height: 1.45;
+    }
+
+    /* Spatially Anchored 3D Callout Labels */
+    #spatial-labels {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 12;
+    }
+    .spatial-tag {
+      position: absolute;
+      transform: translate(-50%, -100%);
+      background: rgba(14, 23, 24, 0.84);
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      padding: 6px 11px;
+      border-radius: 3px;
+      font-size: 0.74rem;
+      line-height: 1.35;
+      color: #f1f5f4;
+      white-space: nowrap;
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+      transition: opacity 0.3s ease;
+    }
+    .spatial-tag::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      bottom: -14px;
+      transform: translateX(-50%);
+      width: 1px;
+      height: 14px;
+      background: rgba(255, 255, 255, 0.45);
+    }
+    .badge-provenance {
+      display: inline-block;
+      padding: 1px 5px;
+      margin-left: 5px;
+      font-size: 0.63rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      border-radius: 2px;
+      text-transform: uppercase;
+      vertical-align: middle;
+    }
+    .badge-proxy { background: #264653; color: #a8dadc; border: 1px solid #457b9d; }
+    .badge-model { background: #3d345b; color: #dcd6f7; border: 1px solid #7668a6; }
+    .badge-measured { background: #1f4e43; color: #9bf6db; border: 1px solid #3ca58d; }
+    .badge-flag { background: #6b1d16; color: #ffd6d1; border: 1px solid #d94e3f; }
+    .badge-pending { background: #4a3e20; color: #f6e2a7; border: 1px solid #b59441; }
+
+    /* Scene 7 Split-Screen Divider Line */
+    #split-screen-overlay {
+      position: absolute;
+      inset: 6.5vh 0;
+      pointer-events: none;
+      z-index: 14;
+      opacity: 0;
+      transition: opacity 0.4s ease;
+    }
+    .split-divider {
+      position: absolute;
+      left: 50%;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background: rgba(255, 255, 255, 0.85);
+      box-shadow: 0 0 12px rgba(0,0,0,0.6);
+    }
+    .split-header-left,
+    .split-header-right {
+      position: absolute;
+      top: 2.5vh;
+      padding: 8px 14px;
+      background: rgba(12, 18, 19, 0.82);
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      font-size: 0.78rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .split-header-left { left: 3vw; border-left: 3px solid var(--accent-amber); }
+    .split-header-right { right: 3vw; border-left: 3px solid #52b788; }
+
+    /* Scene 7 Physical Document Artefact: Comfort & Shade Ledger */
+    #ledger-sheet-container {
+      position: absolute;
+      inset: 6.5vh 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 18;
+      pointer-events: none;
+      opacity: 0;
+      transform: translateY(18px) scale(0.98);
+      transition: opacity 0.6s ease, transform 0.6s ease;
+      background: radial-gradient(circle at center, rgba(14, 22, 23, 0.72), rgba(9, 13, 14, 0.92));
+    }
+    #ledger-sheet {
+      width: min(92vw, 1080px);
+      background: var(--paper-cream);
+      color: var(--text-dark);
+      border: 1px solid var(--paper-border);
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.65);
+      padding: 26px 32px;
+      border-radius: 2px;
+      font-family: "Georgia", "Times New Roman", serif;
+    }
+    .ledger-top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      border-bottom: 2px solid #1f2d2a;
+      padding-bottom: 12px;
+      margin-bottom: 14px;
+    }
+    .ledger-title {
+      font-size: 1.3rem;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+      color: #13201e;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    .ledger-subtitle {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      margin-top: 3px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    .ledger-stamp {
+      font-family: "Courier New", Courier, monospace;
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: #8c2d19;
+      border: 1.5px solid #8c2d19;
+      padding: 4px 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      background: rgba(184, 59, 43, 0.06);
+    }
+    table.ledger-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: 0.77rem;
+    }
+    table.ledger-table th {
+      background: #e6e1d5;
+      color: #1c2826;
+      text-align: left;
+      padding: 8px 10px;
+      border-bottom: 1.5px solid #aba393;
+      text-transform: uppercase;
+      font-size: 0.68rem;
+      letter-spacing: 0.06em;
+    }
+    table.ledger-table td {
+      padding: 9px 10px;
+      border-bottom: 1px solid #d8d2c5;
+      vertical-align: middle;
+      color: #222f2d;
+    }
+    .verdict-pill {
+      display: inline-block;
+      padding: 2px 7px;
+      font-family: "Courier New", Courier, monospace;
+      font-size: 0.7rem;
+      font-weight: 700;
+      border-radius: 2px;
+    }
+    .verdict-unreliable {
+      background: #f9dcd8;
+      color: #8f1d14;
+      border: 1px solid #d1665c;
+    }
+    .verdict-aligned {
+      background: #d8efe6;
+      color: #195742;
+      border: 1px solid #6cb89d;
+    }
+    .verdict-pending {
+      background: #f5ebd0;
+      color: #6e5314;
+      border: 1px solid #cdb26a;
+    }
+    .ledger-footer {
+      margin-top: 16px;
+      padding-top: 12px;
+      border-top: 1px solid #cbc4b5;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    .closing-statement {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: #13201e;
+    }
+    .closing-sub {
+      font-size: 0.8rem;
+      font-style: italic;
+      color: #465450;
+    }
+  </style>
+</head>
+<body>
+  <div id="film-stage">
+    <!-- Top Letterbox Bar -->
+    <div class="letterbox-top">
+      <div>TEDUH · Township Heat Performance Verification Workflow</div>
+      <div id="methodology-ticker">WBGT = 0.7·Tnw + 0.2·Tg + 0.1·Ta | Threshold: 28.0°C (Configurable)</div>
+      <div id="timecode-readout">00:00 / 00:58 · ILLUSTRATIVE WORKFLOW DEMO</div>
+    </div>
+
+    <!-- Main 3D Township Environment Canvas -->
+    <canvas id="webgl-canvas"></canvas>
+
+    <!-- Spatially Anchored 3D Overlay Markers -->
+    <div id="spatial-labels"></div>
+
+    <!-- Split Screen Comparison Overlay (Scene 7A: 48s-52s) -->
+    <div id="split-screen-overlay">
+      <div class="split-divider"></div>
+      <div class="split-header-left">
+        <strong>BASELINE CONDITION (13:00)</strong> · Exposed Walkway <span class="badge-provenance badge-measured">ILLUSTRATIVE</span>
+      </div>
+      <div class="split-header-right">
+        <strong>POST-INTERVENTION FOLLOW-UP (13:00)</strong> · Target Canopy &amp; Trellis <span class="badge-provenance badge-measured">ILLUSTRATIVE</span>
+      </div>
+    </div>
+
+    <!-- Physical Document Artefact: Comfort & Shade Ledger (Scene 7B: 52s-58s) -->
+    <div id="ledger-sheet-container">
+      <div id="ledger-sheet">
+        <div class="ledger-top-bar">
+          <div>
+            <div class="ledger-title">TEDUH — COMFORT &amp; SHADE LEDGER</div>
+            <div class="ledger-subtitle">
+              Per-Segment Verification Record · Scale: 0–100 · Flag Condition: |Proxy Score − Measured Score| &gt; 15 → PROXY_UNRELIABLE
+            </div>
+          </div>
+          <div class="ledger-stamp">ILLUSTRATIVE / SIMULATED ARTEFACT — NOT FIELD DATA</div>
+        </div>
+
+        <table class="ledger-table">
+          <thead>
+            <tr>
+              <th>Route Segment</th>
+              <th>Proxy Score (0–100)</th>
+              <th>Measured Score (0–100)</th>
+              <th>Gap (|Δ|)</th>
+              <th>Verdict</th>
+              <th>Follow-Up / Recommended Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>SEG-01</strong> · Terrace Row A → Neighbourhood Park</td>
+              <td>74 <span class="badge-provenance badge-proxy">PROXY (GP024/GIS)</span></td>
+              <td>68 <span class="badge-provenance badge-measured">SIMULATED MEAS.</span></td>
+              <td>6 pts (≤ 15)</td>
+              <td><span class="verdict-pill verdict-aligned">PROXY_ALIGNED</span></td>
+              <td>Follow-up: 71 (Slight change) · Retain routine tree maintenance</td>
+            </tr>
+            <tr>
+              <td><strong>SEG-04</strong> · Residential Link → Surau &amp; Bus Stop</td>
+              <td>80 <span class="badge-provenance badge-proxy">PROXY (CANOPY/SRI)</span></td>
+              <td>49 <span class="badge-provenance badge-measured">SIMULATED MEAS.</span></td>
+              <td><strong>31 pts (&gt; 15)</strong></td>
+              <td><span class="verdict-pill verdict-unreliable">PROXY_UNRELIABLE</span></td>
+              <td>Follow-up: 72 after shade trellis &amp; west canopy planting (Illustrative)</td>
+            </tr>
+            <tr>
+              <td><strong>SEG-07</strong> · Terrace Row C → Shop Row Walkway</td>
+              <td>77 <span class="badge-provenance badge-model">MODELLED (ENVI-met)</span></td>
+              <td>54 <span class="badge-provenance badge-measured">SIMULATED MEAS.</span></td>
+              <td><strong>23 pts (&gt; 15)</strong></td>
+              <td><span class="verdict-pill verdict-unreliable">PROXY_UNRELIABLE</span></td>
+              <td>Follow-up: 56 (Improvement not demonstrated by paving alone; add overhead shade)</td>
+            </tr>
+            <tr>
+              <td><strong>SEG-11</strong> · Primary School Gate Connector</td>
+              <td>79 <span class="badge-provenance badge-proxy">PROXY (GP024)</span></td>
+              <td>— <span class="badge-provenance badge-pending">PENDING</span></td>
+              <td>PENDING</td>
+              <td><span class="verdict-pill verdict-pending">PENDING FIELD VERIFICATION</span></td>
+              <td>Schedule 20-point WBGT field passes (08:00 / 13:00 / 17:00) &amp; 16:00–18:00 count</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="ledger-footer">
+          <div>
+            <div class="closing-statement">TEDUH — Verify the promise. Measure the reality.</div>
+            <div class="closing-sub">Turning township heat performance into measurable, auditable evidence.</div>
+          </div>
+          <div style="font-size: 0.72rem; color: #52605c; text-align: right;">
+            Standards Context: GP024 Guideline · Voluntary GBI/LCCF · MS 2680 (Residential)<br />
+            No endorsement implied by Sime Darby Property, GBI, MGTC, or PLANMalaysia.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Lower-Left On-Screen Narrative Title Card -->
+    <div id="scene-card">
+      <div id="scene-step">DESIGN INTENT</div>
+      <div id="scene-subtitle">What the township was designed to deliver.</div>
+      <div id="scene-caption">
+        Design-stage proxies (GIS canopy %, roof/paving SRI specs, MS 2680 residential provisions, GP024 400 m radius) describe intent—not verified outdoor comfort.
+      </div>
+    </div>
+
+    <!-- Film Progress Line -->
+    <div id="film-progress-track">
+      <div id="film-progress-bar"></div>
+    </div>
+
+    <!-- Bottom Letterbox Bar -->
+    <div class="letterbox-bottom">
+      <div id="workflow-transition-indicator" style="font-size: 0.74rem; color: rgba(255,255,255,0.7); letter-spacing: 0.08em;">
+        WORKFLOW TRANSITION 1/7: DESIGN MAP → PHYSICAL TOWNSHIP
+      </div>
+      <div style="font-size: 0.72rem; color: rgba(255,255,255,0.5);">
+        AUTOMATIC CONTINUOUS DEMONSTRATION · NO FABRICATED FIELD CLAIMS
+      </div>
+    </div>
+  </div>
+
+  <!-- Three.js for Realistic 3D Malaysian Landed Township Scene -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script>
+    (function () {
+      const TOTAL_DURATION = 58.0; // 58-second automated film
+
+      const canvas = document.getElementById("webgl-canvas");
+      const spatialLabelsContainer = document.getElementById("spatial-labels");
+      const sceneStepEl = document.getElementById("scene-step");
+      const sceneSubtitleEl = document.getElementById("scene-subtitle");
+      const sceneCaptionEl = document.getElementById("scene-caption");
+      const progressBarEl = document.getElementById("film-progress-bar");
+      const timecodeEl = document.getElementById("timecode-readout");
+      const transitionIndicatorEl = document.getElementById("workflow-transition-indicator");
+      const splitScreenOverlay = document.getElementById("split-screen-overlay");
+      const ledgerContainer = document.getElementById("ledger-sheet-container");
+
+      // Initialize Three.js Scene, Camera & Renderer
+      const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x9ec5db);
+      scene.fog = new THREE.FogExp2(0x9ec5db, 0.0045);
+
+      const camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 0.5, 400);
+
+      // Lighting: Tropical Sun + Warm Hemisphere Sky
+      const hemiLight = new THREE.HemisphereLight(0xdff3ff, 0x5c6e58, 0.68);
+      scene.add(hemiLight);
+
+      const sunLight = new THREE.DirectionalLight(0xfff4d6, 1.35);
+      sunLight.position.set(35, 65, 25);
+      sunLight.castShadow = true;
+      sunLight.shadow.mapSize.width = 2048;
+      sunLight.shadow.mapSize.height = 2048;
+      sunLight.shadow.camera.near = 10;
+      sunLight.shadow.camera.far = 180;
+      const d = 65;
+      sunLight.shadow.camera.left = -d;
+      sunLight.shadow.camera.right = d;
+      sunLight.shadow.camera.top = d;
+      sunLight.shadow.camera.bottom = -d;
+      scene.add(sunLight);
+
+      // Ground Plane (Malaysian Township Landed Plot & Green Verges)
+      const groundGeo = new THREE.PlaneGeometry(240, 240);
+      const groundMat = new THREE.MeshLambertMaterial({ color: 0x5f7d56 });
+      const ground = new THREE.Mesh(groundGeo, groundMat);
+      ground.rotation.x = -Math.PI / 2;
+      ground.receiveShadow = true;
+      scene.add(ground);
+
+      // Street & Pedestrian Walking Route Network
+      const roadGroup = new THREE.Group();
+      scene.add(roadGroup);
+
+      const asphaltMat = new THREE.MeshLambertMaterial({ color: 0x33393d });
+      const mainRoad = new THREE.Mesh(new THREE.BoxGeometry(120, 0.12, 9), asphaltMat);
+      mainRoad.position.set(0, 0.06, 0);
+      mainRoad.receiveShadow = true;
+      roadGroup.add(mainRoad);
+
+      const crossRoad = new THREE.Mesh(new THREE.BoxGeometry(9, 0.12, 90), asphaltMat);
+      crossRoad.position.set(18, 0.06, -10);
+      crossRoad.receiveShadow = true;
+      roadGroup.add(crossRoad);
+
+      // Sidewalk / Pedestrian Footpath (Changes albedo during Scene 5 intervention)
+      const sidewalkMat = new THREE.MeshLambertMaterial({ color: 0x8c928e });
+      const prioritySidewalkMat = new THREE.MeshLambertMaterial({ color: 0x767b78 });
+      const sidewalkNorth = new THREE.Mesh(new THREE.BoxGeometry(110, 0.2, 2.4), prioritySidewalkMat);
+      sidewalkNorth.position.set(0, 0.1, -6.2);
+      sidewalkNorth.receiveShadow = true;
+      roadGroup.add(sidewalkNorth);
+
+      const sidewalkSouth = new THREE.Mesh(new THREE.BoxGeometry(110, 0.2, 2.4), sidewalkMat);
+      sidewalkSouth.position.set(0, 0.1, 6.2);
+      sidewalkSouth.receiveShadow = true;
+      roadGroup.add(sidewalkSouth);
+
+      // Malaysian Two-Storey Terrace Houses (North & South Rows + Surau & Shop Row)
+      const townshipGroup = new THREE.Group();
+      scene.add(townshipGroup);
+
+      function createTerraceRow(startX, zPos, count, isNorthRow) {
+        const unitWidth = 6.2;
+        for (let i = 0; i < count; i++) {
+          const unitGroup = new THREE.Group();
+          const x = startX + i * (unitWidth + 0.3);
+
+          // Main wall body
+          const wallMat = new THREE.MeshLambertMaterial({
+            color: i % 2 === 0 ? 0xf2ece1 : 0xe9e0d1
+          });
+          const body = new THREE.Mesh(new THREE.BoxGeometry(unitWidth, 6.2, 11), wallMat);
+          body.position.y = 3.1;
+          body.castShadow = true;
+          body.receiveShadow = true;
+          unitGroup.add(body);
+
+          // Car porch
+          const porch = new THREE.Mesh(new THREE.BoxGeometry(unitWidth - 0.6, 0.35, 4.2), wallMat);
+          porch.position.set(0, 3.2, isNorthRow ? 6.8 : -6.8);
+          porch.castShadow = true;
+          unitGroup.add(porch);
+
+          // Pitched tropical clay-tile roof (One unit in North Row is Show-Unit Controlled Retrofit)
+          const isRetrofitUnit = isNorthRow && i === 4;
+          const roofMat = new THREE.MeshLambertMaterial({
+            color: 0x8f4733
+          });
+          if (isRetrofitUnit) {
+            unitGroup.userData.roofMat = roofMat;
+          }
+          const roof = new THREE.Mesh(new THREE.ConeGeometry(5.6, 2.4, 4), roofMat);
+          roof.rotation.y = Math.PI / 4;
+          roof.scale.set(1.0, 1.0, 1.85);
+          roof.position.y = 7.4;
+          roof.castShadow = true;
+          unitGroup.add(roof);
+
+          unitGroup.position.set(x, 0, zPos);
+          townshipGroup.add(unitGroup);
+        }
+      }
+
+      createTerraceRow(-42, -16.5, 9, true);
+      createTerraceRow(-42, 16.5, 9, false);
+
+      // Surau & Bus Stop Destination Node (East End)
+      const surauGroup = new THREE.Group();
+      const surauBody = new THREE.Mesh(
+        new THREE.BoxGeometry(12, 5.5, 12),
+        new THREE.MeshLambertMaterial({ color: 0xf5f2eb })
+      );
+      surauBody.position.y = 2.75;
+      surauBody.castShadow = true;
+      surauGroup.add(surauBody);
+
+      const dome = new THREE.Mesh(
+        new THREE.SphereGeometry(3.4, 20, 16, 0, Math.PI * 2, 0, Math.PI / 2),
+        new THREE.MeshLambertMaterial({ color: 0x3b7a67 })
+      );
+      dome.position.y = 5.5;
+      dome.castShadow = true;
+      surauGroup.add(dome);
+      surauGroup.position.set(34, 0, -16);
+      townshipGroup.add(surauGroup);
+
+      // Bus Stop Shelter near crossroad
+      const busStop = new THREE.Mesh(
+        new THREE.BoxGeometry(4.5, 2.8, 2.0),
+        new THREE.MeshLambertMaterial({ color: 0x456973 })
+      );
+      busStop.position.set(25, 1.4, -6.2);
+      busStop.castShadow = true;
+      townshipGroup.add(busStop);
+
+      // Tropical Trees (Existing + Intervention Trees planted in Scene 5)
+      function createTropicalTree(x, z, scale = 1.0) {
+        const tGroup = new THREE.Group();
+        const trunk = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.28 * scale, 0.42 * scale, 3.6 * scale, 8),
+          new THREE.MeshLambertMaterial({ color: 0x5c4332 })
+        );
+        trunk.position.y = 1.8 * scale;
+        trunk.castShadow = true;
+        tGroup.add(trunk);
+
+        const canopy = new THREE.Mesh(
+          new THREE.SphereGeometry(2.8 * scale, 14, 12),
+          new THREE.MeshLambertMaterial({ color: 0x386641 })
+        );
+        canopy.scale.set(1.25, 0.68, 1.25);
+        canopy.position.y = 4.2 * scale;
+        canopy.castShadow = true;
+        canopy.receiveShadow = true;
+        tGroup.add(canopy);
+
+        tGroup.position.set(x, 0, z);
+        return tGroup;
+      }
+
+      // Existing park/median trees (some misplaced off the actual walking route to show proxy gap)
+      const existingTrees = [
+        createTropicalTree(-35, 9.5, 1.15),
+        createTropicalTree(-22, 9.5, 1.1),
+        createTropicalTree(-10, -11.2, 1.2), // Shades back garden, leaving sidewalk exposed at 1pm
+        createTropicalTree(4, 9.5, 1.15),
+        createTropicalTree(38, 10.0, 1.3)
+      ];
+      existingTrees.forEach(t => scene.add(t));
+
+      // Scene 1 Design Wireframe / GP024 400m Proxy Ring
+      const designProxyGroup = new THREE.Group();
+      const ringGeo = new THREE.RingGeometry(24, 24.6, 64);
+      const ringMat = new THREE.MeshBasicMaterial({
+        color: 0x64dfdf,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0.75
+      });
+      const proxyRing = new THREE.Mesh(ringGeo, ringMat);
+      proxyRing.rotation.x = -Math.PI / 2;
+      proxyRing.position.set(0, 0.35, 0);
+      designProxyGroup.add(proxyRing);
+
+      const gridHelper = new THREE.GridHelper(110, 22, 0x56cfe1, 0x3a86ff);
+      gridHelper.position.y = 0.25;
+      gridHelper.material.transparent = true;
+      gridHelper.material.opacity = 0.38;
+      designProxyGroup.add(gridHelper);
+      scene.add(designProxyGroup);
+
+      // Scene 2: 20 Shade-Point Field Markers along the actual walking route + Researcher with WBGT Tripod
+      const shadeMarkersGroup = new THREE.Group();
+      const markerMeshes = [];
+      for (let i = 0; i < 20; i++) {
+        const mGeo = new THREE.CylinderGeometry(0.42, 0.42, 0.12, 16);
+        const mMat = new THREE.MeshBasicMaterial({ color: 0x72efdd });
+        const m = new THREE.Mesh(mGeo, mMat);
+        m.position.set(-38 + i * 3.8, 0.24, -6.2);
+        shadeMarkersGroup.add(m);
+        markerMeshes.push(m);
+      }
+      shadeMarkersGroup.visible = false;
+      scene.add(shadeMarkersGroup);
+
+      // Field Researcher + Handheld/Tripod WBGT Instrument + Residents (Older Adult & Child)
+      const researcherGroup = new THREE.Group();
+      const personBody = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.32, 0.36, 1.45, 12),
+        new THREE.MeshLambertMaterial({ color: 0xe9c46a }) // High-vis assessment vest
+      );
+      personBody.position.y = 0.95;
+      personBody.castShadow = true;
+      researcherGroup.add(personBody);
+
+      const personHead = new THREE.Mesh(
+        new THREE.SphereGeometry(0.26, 12, 12),
+        new THREE.MeshLambertMaterial({ color: 0xd4a373 })
+      );
+      personHead.position.y = 1.9;
+      researcherGroup.add(personHead);
+
+      // WBGT Tripod / Globe Sensor
+      const wbgtStand = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.05, 0.18, 1.65, 8),
+        new THREE.MeshLambertMaterial({ color: 0xadb5bd })
+      );
+      wbgtStand.position.set(0.65, 0.85, 0.2);
+      researcherGroup.add(wbgtStand);
+
+      const blackGlobe = new THREE.Mesh(
+        new THREE.SphereGeometry(0.16, 12, 12),
+        new THREE.MeshLambertMaterial({ color: 0x1b1f22 })
+      );
+      blackGlobe.position.set(0.65, 1.75, 0.2);
+      researcherGroup.add(blackGlobe);
+
+      researcherGroup.position.set(-15, 0.2, -6.2);
+      researcherGroup.visible = false;
+      scene.add(researcherGroup);
+
+      // Residents walking (Parent, Child, Older Adult)
+      const residentsGroup = new THREE.Group();
+      function createResident(offsetX, heightScale, colorHex) {
+        const r = new THREE.Group();
+        const torso = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.26 * heightScale, 0.3 * heightScale, 1.35 * heightScale, 10),
+          new THREE.MeshLambertMaterial({ color: colorHex })
+        );
+        torso.position.y = 0.85 * heightScale;
+        torso.castShadow = true;
+        r.add(torso);
+        const head = new THREE.Mesh(
+          new THREE.SphereGeometry(0.22 * heightScale, 10, 10),
+          new THREE.MeshLambertMaterial({ color: 0xd8a47f })
+        );
+        head.position.y = 1.7 * heightScale;
+        r.add(head);
+        r.position.x = offsetX;
+        return r;
+      }
+      residentsGroup.add(createResident(0, 1.0, 0x457b9d));     // Adult
+      residentsGroup.add(createResident(0.85, 0.68, 0xf4a261)); // Child
+      residentsGroup.add(createResident(-1.4, 0.94, 0x8d99ae)); // Older Adult
+      residentsGroup.position.set(2, 0.2, -6.2);
+      residentsGroup.visible = false;
+      scene.add(residentsGroup);
+
+      // Scene 4 Diagnostic Route Segments (Aligned vs PROXY_UNRELIABLE |Gap| > 15)
+      const routeDiagnosticGroup = new THREE.Group();
+      const segAligned = new THREE.Mesh(
+        new THREE.BoxGeometry(28, 0.26, 2.5),
+        new THREE.MeshBasicMaterial({ color: 0x52b788, transparent: true, opacity: 0.82 })
+      );
+      segAligned.position.set(-26, 0.22, -6.2);
+      routeDiagnosticGroup.add(segAligned);
+
+      const segUnreliable = new THREE.Mesh(
+        new THREE.BoxGeometry(36, 0.28, 2.6),
+        new THREE.MeshBasicMaterial({ color: 0xd62828, transparent: true, opacity: 0.86 })
+      );
+      segUnreliable.position.set(8, 0.24, -6.2);
+      routeDiagnosticGroup.add(segUnreliable);
+      routeDiagnosticGroup.visible = false;
+      scene.add(routeDiagnosticGroup);
+
+      // Scene 5 Physical Interventions: New Targeted Shade Trees + Shade Trellis Pergola
+      const interventionGroup = new THREE.Group();
+      const newTrees = [
+        createTropicalTree(-4, -4.5, 1.15),
+        createTropicalTree(4, -4.5, 1.2),
+        createTropicalTree(12, -4.5, 1.15)
+      ];
+      newTrees.forEach(t => interventionGroup.add(t));
+
+      // Covered Pedestrian Shade Trellis approaching Surau & Bus Stop
+      const trellisRoof = new THREE.Mesh(
+        new THREE.BoxGeometry(18, 0.22, 3.0),
+        new THREE.MeshLambertMaterial({ color: 0xd8d2c5 })
+      );
+      trellisRoof.position.set(23, 3.2, -6.2);
+      trellisRoof.castShadow = true;
+      interventionGroup.add(trellisRoof);
+
+      for (let p = 0; p < 5; p++) {
+        const post = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.1, 0.1, 3.2, 8),
+          new THREE.MeshLambertMaterial({ color: 0x3b4947 })
+        );
+        post.position.set(15 + p * 4, 1.6, -7.4);
+        post.castShadow = true;
+        interventionGroup.add(post);
+      }
+      interventionGroup.visible = false;
+      scene.add(interventionGroup);
+
+      // Helper for 3D-to-2D Screen Projection of Spatial Callout Tags
+      const activeAnchors = [];
+      function setSpatialAnchors(anchors) {
+        spatialLabelsContainer.innerHTML = "";
+        activeAnchors.length = 0;
+        anchors.forEach(item => {
+          const el = document.createElement("div");
+          el.className = "spatial-tag";
+          el.innerHTML = item.html;
+          spatialLabelsContainer.appendChild(el);
+          activeAnchors.push({ pos: item.pos, el });
+        });
+      }
+
+      function updateSpatialAnchors() {
+        const width = window.innerWidth;
+        const height = window.innerHeight;
+        activeAnchors.forEach(anchor => {
+          const projected = anchor.pos.clone().project(camera);
+          if (projected.z > 1) {
+            anchor.el.style.opacity = "0";
+          } else {
+            const x = (projected.x * 0.5 + 0.5) * width;
+            const y = (-projected.y * 0.5 + 0.5) * height;
+            anchor.el.style.left = `${x}px`;
+            anchor.el.style.top = `${y}px`;
+            anchor.el.style.opacity = "1";
+          }
+        });
+      }
+
+      // Scene State Controller (Strictly following 0-58s Timeline)
+      let currentSceneIndex = -1;
+
+      function applySceneState(sceneIndex) {
+        if (sceneIndex === currentSceneIndex) return;
+        currentSceneIndex = sceneIndex;
+
+        // Reset defaults
+        designProxyGroup.visible = false;
+        shadeMarkersGroup.visible = false;
+        researcherGroup.visible = false;
+        residentsGroup.visible = false;
+        routeDiagnosticGroup.visible = false;
+        interventionGroup.visible = false;
+        splitScreenOverlay.style.opacity = "0";
+        ledgerContainer.style.opacity = "0";
+        ledgerContainer.style.transform = "translateY(18px) scale(0.98)";
+
+        if (sceneIndex === 1) {
+          // SCENE 1 (0-6s): THE DESIGN PROMISE
+          designProxyGroup.visible = true;
+          sceneStepEl.textContent = "DESIGN INTENT";
+          sceneSubtitleEl.textContent = "What the township was designed to deliver.";
+          sceneCaptionEl.textContent =
+            "Design-stage indicators (tree canopy %, roof/paving SRI specs, MS 2680 residential provisions, GP024 400 m green-space access, and modelled microclimate contours) describe intent—not verified outdoor comfort.";
+          transitionIndicatorEl.textContent = "WORKFLOW TRANSITION 1/7: DESIGN MAP → PHYSICAL TOWNSHIP";
+
+          setSpatialAnchors([
+            {
+              pos: new THREE.Vector3(-10, 6.2, -11.2),
+              html: `Tree Canopy Coverage % <span class="badge-provenance badge-proxy">PROXY — GIS</span>`
+            },
+            {
+              pos: new THREE.Vector3(-16, 8.8, -16.5),
+              html: `Roof &amp; Paving Spec (LCCF SRI ≥ 29 / MS 2680) <span class="badge-provenance badge-proxy">PROXY — DESIGN</span>`
+            },
+            {
+              pos: new THREE.Vector3(6, 1.5, 8),
+              html: `Green Space ≤ 400 m (GP024) + Microclimate Sim <span class="badge-provenance badge-model">MODELLED</span>`
+            }
+          ]);
+        } else if (sceneIndex === 2) {
+          // SCENE 2 (6-14s): ESTABLISH THE BASELINE
+          shadeMarkersGroup.visible = true;
+          researcherGroup.visible = true;
+          residentsGroup.visible = true;
+          sceneStepEl.textContent = "STEP 1 — BASELINE";
+          sceneSubtitleEl.textContent = "Measure the places people actually use.";
+          sceneCaptionEl.textContent =
+            "Satellite LST & GIS provide context only. On the ground: 20 route shade points measured at 08:00, 13:00, and 17:00 using handheld WBGT equipment, plus pedestrian counts from 16:00 to 18:00.";
+          transitionIndicatorEl.textContent = "WORKFLOW TRANSITION 2/7: TOWNSHIP ROUTE → FIELD MEASUREMENT";
+
+          setSpatialAnchors([
+            {
+              pos: new THREE.Vector3(-15, 3.2, -6.2),
+              html: `Handheld WBGT Meter (08:00 / 13:00 / 17:00 Passes) <span class="badge-provenance badge-measured">MEASURED — ILLUSTRATIVE</span>`
+            },
+            {
+              pos: new THREE.Vector3(2, 3.0, -6.2),
+              html: `Pedestrian Activity Count (16:00–18:00) <span class="badge-provenance badge-measured">20 ROUTE POINTS</span>`
+            }
+          ]);
+        } else if (sceneIndex === 3) {
+          // SCENE 3 (14-23s): COMPARE EXPECTATION WITH REALITY
+          shadeMarkersGroup.visible = true;
+          researcherGroup.visible = true;
+          designProxyGroup.visible = true;
+          sceneStepEl.textContent = "STEP 2 — VERIFY";
+          sceneSubtitleEl.textContent = "Compare design proxies with field evidence.";
+          sceneCaptionEl.textContent =
+            "Each design proxy is paired with one ground-truth field check: GIS canopy % vs. actual route shade, roof SRI spec vs. infrared/logger spot-check, and GP024 400 m map access vs. afternoon foot traffic.";
+          transitionIndicatorEl.textContent = "WORKFLOW TRANSITION 3/7: DESIGN PROXY → CORRESPONDING FIELD EVIDENCE";
+
+          setSpatialAnchors([
+            {
+              pos: new THREE.Vector3(-10, 6.0, -11.2),
+              html: `Layer 1: GIS Canopy Proxy Suggests Shade <span class="badge-provenance badge-proxy">PROXY</span>`
+            },
+            {
+              pos: new THREE.Vector3(-6, 1.8, -6.2),
+              html: `Layer 2: Sidewalk Exposed at 13:00 <span class="badge-provenance badge-measured">GROUND-TRUTH CHECK (ILLUSTRATIVE)</span>`
+            },
+            {
+              pos: new THREE.Vector3(-16, 8.8, -16.5),
+              html: `Roof Spec vs. Infrared Spot-Check + Logger <span class="badge-provenance badge-measured">ILLUSTRATIVE COMPARISON</span>`
+            }
+          ]);
+        } else if (sceneIndex === 4) {
+          // SCENE 4 (23-31s): IDENTIFY THE GAP AND PRIORITISE
+          routeDiagnosticGroup.visible = true;
+          shadeMarkersGroup.visible = true;
+          sceneStepEl.textContent = "STEP 3 — DIAGNOSE";
+          sceneSubtitleEl.textContent = "Find where design expectations and field evidence diverge.";
+          sceneCaptionEl.textContent =
+            "Proxy Score vs. Measured Score on a 0–100 scale. Where |Proxy − Measured| > 15 points, TEDUH triggers PROXY_UNRELIABLE—prioritising everyday routes to the surau, bus stop, and shops.";
+          transitionIndicatorEl.textContent = "WORKFLOW TRANSITION 4/7: COMPARISON → GAP DETECTION & PRIORITISATION";
+
+          setSpatialAnchors([
+            {
+              pos: new THREE.Vector3(-26, 2.2, -6.2),
+              html: `SEG-01 (Park Link): Proxy 74 vs. Meas. 68 (|Gap| = 6 ≤ 15) <span class="badge-provenance badge-measured">ILLUSTRATIVE</span>`
+            },
+            {
+              pos: new THREE.Vector3(8, 2.8, -6.2),
+              html: `SEG-04 (Surau/Bus Stop): Proxy 80 vs. Meas. 49 (|Gap| = 31 &gt; 15) <span class="badge-provenance badge-flag">PROXY_UNRELIABLE</span>`
+            },
+            {
+              pos: new THREE.Vector3(30, 5.2, -13),
+              html: `Priority Everyday Destination: Surau &amp; Bus Stop Route`
+            }
+          ]);
+        } else if (sceneIndex === 5) {
+          // SCENE 5 (31-39s): IMPLEMENT PHYSICAL IMPROVEMENTS
+          interventionGroup.visible = true;
+          prioritySidewalkMat.color.setHex(0xc8c3b8); // Higher-albedo paving surface replacement (SRI >= 29)
+          townshipGroup.children.forEach(u => {
+            if (u.userData.roofMat) u.userData.roofMat.color.setHex(0xd9d4cc); // Controlled single-unit roof retrofit
+          });
+
+          sceneStepEl.textContent = "STEP 4 — INTERVENE";
+          sceneSubtitleEl.textContent = "Target improvements at priority locations.";
+          sceneCaptionEl.textContent =
+            "Physical interventions on priority segments: planting western-edge canopy trees, installing a ventilated shade trellis, replacing dark asphalt with higher-albedo paving (SRI ≥ 29), and one controlled show-unit roof retrofit.";
+          transitionIndicatorEl.textContent = "WORKFLOW TRANSITION 5/7: PRIORITY SEGMENT → PHYSICAL INTERVENTION";
+
+          setSpatialAnchors([
+            {
+              pos: new THREE.Vector3(4, 5.8, -4.5),
+              html: `Targeted Canopy Planting Along Pedestrian Edge <span class="badge-provenance badge-pending">INTERVENTION</span>`
+            },
+            {
+              pos: new THREE.Vector3(23, 4.2, -6.2),
+              html: `Shade Structure &amp; High-Albedo Surface (LCCF SRI ≥ 29) <span class="badge-provenance badge-pending">INTERVENTION</span>`
+            },
+            {
+              pos: new THREE.Vector3(-16, 9.0, -16.5),
+              html: `Controlled Show-Unit Roof Retrofit (Single-Unit Test) <span class="badge-provenance badge-pending">TEST ONLY</span>`
+            }
+          ]);
+        } else if (sceneIndex === 6) {
+          // SCENE 6 (39-48s): RE-MEASURE AND VERIFY
+          interventionGroup.visible = true;
+          shadeMarkersGroup.visible = true;
+          researcherGroup.visible = true;
+          residentsGroup.visible = true;
+
+          sceneStepEl.textContent = "STEP 5 — VERIFY THE OUTCOME";
+          sceneSubtitleEl.textContent = "Measure again. Report what changed.";
+          sceneCaptionEl.textContent =
+            "Revisiting the exact same 20 points at 08:00, 13:00, and 17:00. Only repeat field measurements establish whether the condition improved, changed slightly, or did not demonstrate expected improvement.";
+          transitionIndicatorEl.textContent = "WORKFLOW TRANSITION 6/7: ORIGINAL MEASUREMENT POINT → REPEAT MEASUREMENT";
+
+          setSpatialAnchors([
+            {
+              pos: new THREE.Vector3(20, 3.5, -6.2),
+              html: `Repeat Pass P16: Condition Improved <span class="badge-provenance badge-measured">SIMULATED OUTCOME A</span>`
+            },
+            {
+              pos: new THREE.Vector3(2, 3.2, -6.2),
+              html: `Repeat Pass P11: Condition Changed Slightly <span class="badge-provenance badge-measured">SIMULATED OUTCOME B</span>`
+            },
+            {
+              pos: new THREE.Vector3(-18, 2.8, -6.2),
+              html: `Repeat Pass P06: Expected Improvement Not Demonstrated <span class="badge-provenance badge-flag">SIMULATED OUTCOME C</span>`
+            }
+          ]);
+        } else if (sceneIndex === 7) {
+          // SCENE 7A (48-52s): BEFORE-AND-AFTER SPLIT SCREEN
+          interventionGroup.visible = true;
+          residentsGroup.visible = true;
+          splitScreenOverlay.style.opacity = "1";
+
+          sceneStepEl.textContent = "BEFORE & AFTER COMPARISON";
+          sceneSubtitleEl.textContent = "Consistent framing across baseline and follow-up.";
+          sceneCaptionEl.textContent =
+            "Left: Baseline route exposure before intervention. Right: Follow-up condition along the same route segment prior to recording the final Comfort & Shade Ledger.";
+          transitionIndicatorEl.textContent = "WORKFLOW TRANSITION 7/7: BEFORE-AND-AFTER → COMFORT & SHADE LEDGER";
+          setSpatialAnchors([]);
+        } else if (sceneIndex === 8) {
+          // SCENE 7B (52-58s): FINAL COMFORT & SHADE LEDGER ARTEFACT
+          interventionGroup.visible = true;
+          splitScreenOverlay.style.opacity = "0";
+          ledgerContainer.style.opacity = "1";
+          ledgerContainer.style.transform = "translateY(0) scale(1)";
+
+          sceneStepEl.textContent = "DELIVERABLE — COMFORT & SHADE LEDGER";
+          sceneSubtitleEl.textContent = "TEDUH — Verify the promise. Measure the reality.";
+          sceneCaptionEl.textContent =
+            "Turning township heat performance into measurable, auditable evidence with explicit provenance (MEASURED, MODELLED, PROXY, ASSUMED, or PENDING FIELD VERIFICATION).";
+          transitionIndicatorEl.textContent = "FINAL REPORT ARTEFACT: PER-SEGMENT COMFORT & SHADE LEDGER";
+          setSpatialAnchors([]);
+        }
+      }
+
+      // Linear interpolation helper
+      function lerp(a, b, t) {
+        return a + (b - a) * Math.max(0, Math.min(1, t));
+      }
+
+      // Continuous Automatic Timeline Loop (0 to 58 seconds)
+      const startTime = performance.now();
+
+      function animate(now) {
+        requestAnimationFrame(animate);
+
+        const elapsed = ((now - startTime) / 1000) % TOTAL_DURATION;
+        const progressPct = (elapsed / TOTAL_DURATION) * 100;
+        progressBarEl.style.width = `${progressPct.toFixed(2)}%`;
+
+        const secs = Math.floor(elapsed).toString().padStart(2, "0");
+        timecodeEl.textContent = `00:${secs} / 00:58 · ILLUSTRATIVE WORKFLOW DEMO`;
+
+        // Camera & Sun Choreography across the 7 Scenes (0-58s)
+        if (elapsed < 6.0) {
+          // Scene 1: 0-6s (Aerial Design Promise -> Street Descent)
+          applySceneState(1);
+          const p = elapsed / 6.0;
+          camera.position.set(lerp(-35, -24, p), lerp(48, 16, p), lerp(46, 22, p));
+          camera.lookAt(lerp(0, -8, p), 1.5, -6.2);
+          sunLight.position.set(35, 65, 25);
+        } else if (elapsed < 14.0) {
+          // Scene 2: 6-14s (Establish the Baseline: 08:00, 13:00, 17:00 passes)
+          applySceneState(2);
+          const p = (elapsed - 6.0) / 8.0;
+          camera.position.set(lerp(-24, -4, p), lerp(8.5, 5.5, p), lerp(11, 8, p));
+          camera.lookAt(lerp(-14, 0, p), 1.6, -6.2);
+
+          // Animate sun arc for 08:00 AM -> 01:00 PM -> 05:00 PM
+          const sunAngle = lerp(0.35, 2.65, p);
+          sunLight.position.set(Math.cos(sunAngle) * 55, Math.sin(sunAngle) * 65 + 12, 18);
+          researcherGroup.position.x = lerp(-22, 6, p);
+          residentsGroup.position.x = lerp(-4, 12, p);
+        } else if (elapsed < 23.0) {
+          // Scene 3: 14-23s (Compare Expectation with Reality)
+          applySceneState(3);
+          const p = (elapsed - 14.0) / 9.0;
+          camera.position.set(lerp(-18, 10, p), lerp(11, 13, p), lerp(16, 18, p));
+          camera.lookAt(lerp(-12, 4, p), 3.0, -10.0);
+          sunLight.position.set(8, 72, 14); // 1:00 PM high tropical sun
+        } else if (elapsed < 31.0) {
+          // Scene 4: 23-31s (Identify the Gap & Prioritise |Gap| > 15 -> PROXY_UNRELIABLE)
+          applySceneState(4);
+          const p = (elapsed - 23.0) / 8.0;
+          camera.position.set(lerp(-8, 12, p), lerp(26, 22, p), lerp(28, 24, p));
+          camera.lookAt(lerp(-4, 10, p), 1.0, -6.2);
+        } else if (elapsed < 39.0) {
+          // Scene 5: 31-39s (Implement Physical Improvements)
+          applySceneState(5);
+          const p = (elapsed - 31.0) / 8.0;
+          camera.position.set(lerp(2, 20, p), lerp(9, 7.5, p), lerp(14, 11, p));
+          camera.lookAt(lerp(6, 22, p), 2.4, -6.2);
+
+          // Smoothly scale in newly planted trees & shade trellis
+          const grow = Math.min(1, p * 1.6);
+          interventionGroup.scale.set(1, grow, 1);
+        } else if (elapsed < 48.0) {
+          // Scene 6: 39-48s (Re-Measure & Verify at same points and times)
+          applySceneState(6);
+          interventionGroup.scale.set(1, 1, 1);
+          const p = (elapsed - 39.0) / 9.0;
+          camera.position.set(lerp(24, -6, p), lerp(7.0, 9.0, p), lerp(11, 14, p));
+          camera.lookAt(lerp(18, -2, p), 1.8, -6.2);
+          researcherGroup.position.x = lerp(22, -12, p);
+          residentsGroup.position.x = lerp(14, 24, p);
+        } else if (elapsed < 52.0) {
+          // Scene 7A: 48-52s (Locked-Camera Split-Screen Comparison)
+          applySceneState(7);
+          camera.position.set(6, 6.5, 12);
+          camera.lookAt(8, 2.0, -6.2);
+        } else {
+          // Scene 7B: 52-58s (Comfort & Shade Ledger Physical Document Artefact)
+          applySceneState(8);
+          camera.position.set(8, 14, 22);
+          camera.lookAt(8, 2.0, -6.2);
+        }
+
+        renderer.render(scene, camera);
+        updateSpatialAnchors();
+      }
+
+      window.addEventListener("resize", () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      });
+
+      requestAnimationFrame(animate);
+    })();
+  </script>
+</body>
+</html>
